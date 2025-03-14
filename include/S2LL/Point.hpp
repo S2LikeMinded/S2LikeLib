@@ -2,15 +2,13 @@
 #ifndef __POINT_HPP__
 #define __POINT_HPP__
 
+#include <ostream>
+
 class Point
 {
 public:
 	// Constructor using spherical coordinates
-	Point(double polar, double azimuth)
-	: p(polar), a(azimuth)
-	{
-
-	}
+	Point(double polar, double azimuth);
 
 private:
 	// Spherical coordinates
@@ -21,11 +19,7 @@ private:
 
 public:
 	// Output Cartesian coordinates
-	friend &std::ostream operator<<(std::ostream &os, const Point& p)
-	{
-		os << p.x << " " << p.y << " " << p.z;
-		return os;
-	}
+	friend std::ostream& operator<<(std::ostream& ost, const Point& point);
 };
 
 #endif // !__POINT_HPP__

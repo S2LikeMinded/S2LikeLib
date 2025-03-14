@@ -1,3 +1,10 @@
+# Intermediate directories
+**/build/
+
+# Binary directories
+bin/
+lib/
+
 # Prerequisites
 *.d
 
