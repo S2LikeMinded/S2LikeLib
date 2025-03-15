@@ -1,9 +1,8 @@
-# Intermediate directories
-**/build/
-
-# Binary directories
+# CMake intermediate directories
+build/
 bin/
 lib/
+include/
 
 # Prerequisites
 *.d

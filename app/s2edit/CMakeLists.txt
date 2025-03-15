@@ -1,12 +1,12 @@
-cmake_minimum_required(VERSION 3.10)
-project(S2Edit VERSION 0.0.1)
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+add_executable(S2Edit main.cpp)
+add_dependencies(S2Edit S2LL)
 
 configure_file(S2EditConfig.hpp.in S2EditConfig.hpp)
 
-add_executable(S2Edit main.cpp)
-target_include_directories(S2Edit PUBLIC ../../include)
-target_include_directories(S2Edit PUBLIC ${PROJECT_BINARY_DIR})
-target_link_libraries(S2Edit ../../../lib/Debug/S2LL)
+get_cmake_property(all_vars VARIABLES)
+
+target_include_directories(S2Edit PUBLIC ${CMAKE_HOME_DIRECTORY}/include)
+target_include_directories(S2Edit PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+
+target_link_libraries(S2Edit PUBLIC ${CMAKE_HOME_DIRECTORY}/lib/${CMAKE_BUILD_TYPE_INIT}/S2LL.lib)
