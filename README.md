@@ -10,7 +10,7 @@ A lightweight, efficient, and robust suite of C++17 tools and library for sphere
 
 ### Windows Command Prompt
 
-```sh
+```batch
 git clone https://github.com/S2LikeMinded/S2LikeLib.git
 cd S2LikeLib && mkdir build
 cmake -B build
