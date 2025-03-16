@@ -9,4 +9,8 @@ get_cmake_property(all_vars VARIABLES)
 target_include_directories(S2Edit PUBLIC ${CMAKE_HOME_DIRECTORY}/include)
 target_include_directories(S2Edit PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
-target_link_libraries(S2Edit PUBLIC ${CMAKE_HOME_DIRECTORY}/lib/${CMAKE_BUILD_TYPE_INIT}/S2LL.lib)
+target_link_libraries(S2Edit
+	PUBLIC ${CMAKE_HOME_DIRECTORY}/lib/${CMAKE_BUILD_TYPE_INIT}/S2LL.lib
+	argparse
+	cli
+)
