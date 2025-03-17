@@ -9,23 +9,24 @@
 #include <cli/clilocalsession.h>
 #include <cli/loopscheduler.h>
 
+#include <algorithm>
 #include <filesystem>
+#include <locale>
 
 int main(int argc, char const *argv[])
 {
-	std::string inputPath;
-	bool asShapeFile = false;
-
-	std::vector<S2LM::Region> regions;
-
-	// ==== argparse definitions for argument parsing ====================== //
-	argparse::ArgumentParser prog
-	(
-		"S2Edit",
+	std::string version =
 		std::to_string(_S2LIKELIB_VERSION_MAJOR) + "." +
 		std::to_string(_S2LIKELIB_VERSION_MINOR) + "." +
-		std::to_string(_S2LIKELIB_VERSION_PATCH)
-	);
+		std::to_string(_S2LIKELIB_VERSION_PATCH);
+	std::string inputPath;
+	std::string inputExtension;
+	bool asShapeFile = false;
+
+	std::vector<S2LM::CompoundPolygon> cpolyRegions;
+
+	// ==== argparse definitions for argument parsing ====================== //
+	argparse::ArgumentParser prog("S2Edit", version);
 
 	// Specifies an input path
 	prog.add_argument("input")
@@ -66,15 +67,36 @@ int main(int argc, char const *argv[])
 		{
 			if (std::filesystem::is_regular_file(inputPath))
 			{
+				// Detect file extension and force upper case
+				std::filesystem::path input(inputPath);
+				inputExtension = input.extension().string();
+				{
+					std::locale locale;
+					for (auto &c: inputExtension)
+						c = std::toupper(c, locale);
+				}
+
+				// Overrides file extension if specified
 				if (asShapeFile)
 				{
-					// S2LM::Parser::Shapefile parser(inputPath);
-					// regions.push_back(parser.getRegions());
+					inputExtension = ".SHP";
+				}
+
+				// Parse according to the extension
+				std::cout << "Input: " << inputPath << "\n";
+				if (inputExtension == ".SHP")
+				{
+					S2LM::Parser::Shapefile parser(input);
+					cpolyRegions = parser.regions;
+				}
+				else
+				{
+					throw std::runtime_error(inputExtension + " not supported");
 				}
 			}
 			else if (std::filesystem::is_directory(inputPath))
 			{
-
+				throw std::runtime_error("directory not supported as input");
 			}
 		}
 	}
@@ -85,24 +107,55 @@ int main(int argc, char const *argv[])
 	}
 
 	// ==== Configure interactive facility ================================= //
-	auto rootMenu = std::make_unique<cli::Menu>("s2edit");
-	rootMenu->Insert("input", [&inputPath](std::ostream& out){
-		out << "Path: " << inputPath << std::endl;
-	}, "Print information about the input");
+	auto rootMenu = std::make_unique<cli::Menu>("S2Edit");
+	rootMenu->Insert
+	(
+		"input",
+		[&inputPath](std::ostream& ost)
+		{
+			ost << "Input: " << inputPath << "\n";
+		},
+		"Information about the input"
+	);
+
+	rootMenu->Insert
+	(
+		"stats",
+		[&cpolyRegions](std::ostream& ost, const std::vector<std::string>& argv)
+		{
+			// stats
+			ost << "Count: " << cpolyRegions.size() << " cPoly(s)\n";
+			if (argv.empty()) return;
+
+			// stats list
+			if (argv[0] == "list")
+			{
+				for (size_t i = 0; i < cpolyRegions.size(); ++i)
+				{
+					const auto& cpoly = cpolyRegions[i];
+					ost << "cPoly[" << i << "]: "
+						<< cpoly.polygons.size() << " Poly(s)\n";
+				}
+				ost << "\n";
+			}
+		},
+		"Numerics about loaded regions: <list>"
+	);
 
 	// Setup interactive facility
 	cli::Cli cli(std::move(rootMenu));
+
+	// Entry
+	cli.EnterAction([&version](std::ostream& ost) {
+		ost << "S2Edit Command-Line Interface " << version << "\n";
+	});
+
 	cli::LoopScheduler scheduler;
 	cli::CliLocalTerminalSession localSession(cli, scheduler, std::cout);
 
-	// Entry
-	cli.EnterAction([](std::ostream& out) {
-		out << "Starting s2edit CLI facility..." << std::endl;
-	});
-
 	// Exit
 	cli.ExitAction([&scheduler](std::ostream& ost) {
-		ost << "Exiting..." << std::endl;
+		ost << "S2Exit CLI Exiting...\n";
 		scheduler.Stop();
 	});
 
