@@ -2,7 +2,7 @@
 #include "S2EditConfig.hpp"
 
 #include <S2LL/Parser/Shapefile.hpp>
-#include <S2LL/Core/Region.hpp>
+#include <S2LL/Core/Regions.hpp>
 
 #include <argparse/argparse.hpp>
 #include <cli/cli.h>

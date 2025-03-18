@@ -4,6 +4,9 @@ bin/
 lib/
 include/
 
+# Spotlight
+.DS_Store
+
 # Prerequisites
 *.d
 
