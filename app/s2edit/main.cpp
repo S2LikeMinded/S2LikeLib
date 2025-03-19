@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <locale>
+#include <iomanip>
 
 int main(int argc, char const *argv[])
 {
@@ -73,18 +74,18 @@ int main(int argc, char const *argv[])
 				{
 					std::locale locale;
 					for (auto &c: inputExtension)
-						c = std::toupper(c, locale);
+						c = std::tolower(c, locale);
 				}
 
 				// Overrides file extension if specified
 				if (asShapeFile)
 				{
-					inputExtension = ".SHP";
+					inputExtension = ".shp";
 				}
 
 				// Parse according to the extension
 				std::cout << "Input: " << inputPath << "\n";
-				if (inputExtension == ".SHP")
+				if (inputExtension == ".shp")
 				{
 					S2LM::Parser::Shapefile parser(input);
 					cpolyRegions = parser.regions;
@@ -142,6 +143,70 @@ int main(int argc, char const *argv[])
 		"Numerics about loaded regions: <list>"
 	);
 
+	rootMenu->Insert
+	(
+		"region",
+		[&cpolyRegions](std::ostream& ost, const std::vector<std::string>& argv)
+		{
+			// region
+			if (argv.empty())
+			{
+				ost << "Must supply <index>\n";
+				return;
+			}
+			else if (argv.size() > 2)
+			{
+				ost << "Too many arguments\n";
+				return;
+			}
+
+			// region <index> [<subindex>]
+			int index = std::stoi(argv[0]);
+			if (index >= cpolyRegions.size())
+			{
+				ost << "Only " << cpolyRegions.size() << " compound polygons\n";
+				return;
+			}
+			const auto& cpoly = cpolyRegions[index];
+
+			size_t subIndexStart, subIndexFinal;
+			if (argv.size() == 2)
+			{
+				size_t subIndex = (size_t)std::stoi(argv[1]);
+				if (subIndex >= cpoly.polygons.size())
+				{
+				ost << "Only " << cpoly.polygons.size() << " polygons\n";
+					return;
+				}
+				subIndexStart = subIndex;
+				subIndexFinal = subIndexStart + 1;
+			}
+			else
+			{
+				subIndexStart = 0;
+				subIndexFinal = cpoly.polygons.size();
+			}
+
+			for (size_t j = subIndexStart; j < subIndexFinal; ++j)
+			{
+				const auto& poly = cpoly.polygons[j];
+				ost << "cPoly[" << index << "][" << j << "]:\n";
+				std::ios_base::fmtflags ioFlags =
+					ost.flags(std::ios::right);
+				std::streamsize ioPrecision =
+					ost.precision(std::numeric_limits<double>::digits10);
+				for (size_t k = 0; k < poly.vertices.size(); ++k)
+				{
+					const auto& vertex = poly.vertices[k];
+					ost << "    " << vertex.x << " " << vertex.y << "\n";
+				}
+				ost.flags(ioFlags);
+				ost.precision(ioPrecision);
+			}
+		},
+		"Display information about region: <index> [<subindex>]"
+	);
+
 	// Setup interactive facility
 	cli::Cli cli(std::move(rootMenu));
 
@@ -155,7 +220,7 @@ int main(int argc, char const *argv[])
 
 	// Exit
 	cli.ExitAction([&scheduler](std::ostream& ost) {
-		ost << "S2Exit CLI Exiting...\n";
+		ost << "S2Edit CLI Exiting...\n";
 		scheduler.Stop();
 	});
 

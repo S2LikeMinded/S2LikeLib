@@ -14,7 +14,16 @@ namespace S2LM
 
 		double x;
 
+
 		double y;
+
+		/*
+		friend std::ostream& operator<<(std::ostream& ost, const E2& e2)
+		{
+			ost << "[" << e2.x << " " << e2.y << "]";
+			return ost;
+		}
+		*/
 	};
 
 	// Plain-old-data type for 3D Cartesian coordinates
@@ -23,7 +32,9 @@ namespace S2LM
 
 		double x;
 
+
 		double y;
+
 
 		double z;
 	};

@@ -74,6 +74,117 @@ Shapefile::SHPReader::SHPReader(const std::filesystem::path& path)
 	}
 }
 
+Shapefile::PRJReader::PRJReader(const std::filesystem::path& path)
+{
+	std::string content;
+	{
+		std::ifstream ifs(path);
+		std::stringstream sst;
+		sst << ifs.rdbuf();
+		content = sst.str();
+	}
+
+	bool enquoted = false;
+	std::string literal;
+	std::vector<WKTree::NodePtr> ptrs;
+
+	std::cout << "Start\n";
+
+	for (char c : content)
+	{
+		std::cout << "Parsing '" << c << "':\n";
+
+		if (enquoted)
+		{
+			literal += c;
+			if (c == '\"')
+			{
+				enquoted = false;
+
+				auto newKeywordPtr = std::make_shared<WKTree::Node>();
+				ptrs.emplace_back(newKeywordPtr);
+
+				newKeywordPtr->complete = true;
+				newKeywordPtr->nameOrValue = literal;
+				literal.clear();
+			}
+		}
+		else if (c == '\"')
+		{
+			literal += c;
+			enquoted = true;
+		}
+		else if (c == '[')
+		{
+			auto newKeywordPtr = std::make_shared<WKTree::Node>();
+			ptrs.emplace_back(newKeywordPtr);
+
+			newKeywordPtr->complete = false;
+			newKeywordPtr->nameOrValue = literal;
+			literal.clear();
+		}
+		else if (c == ']')
+		{
+			if (literal.empty())
+			{
+				auto childPtr = ptrs.back();
+				ptrs.pop_back();
+
+				auto parentPtr = ptrs.back();
+				parentPtr->complete = true;
+				parentPtr->values.push_back(childPtr);
+			}
+			else
+			{
+				auto newKeywordPtr = std::make_shared<WKTree::Node>();
+				newKeywordPtr->complete = true;
+				newKeywordPtr->nameOrValue = literal;
+				literal.clear();
+
+				auto childPtr = ptrs.back();
+				childPtr->complete = true;
+				childPtr->values.push_back(newKeywordPtr);
+			}
+		}
+		else if (c == ',')
+		{
+			if (literal.empty())
+			{
+				auto childPtr = ptrs.back();
+				ptrs.pop_back();
+
+				auto parentPtr = ptrs.back();
+				parentPtr->values.push_back(childPtr);
+			}
+			else
+			{
+				auto newKeywordPtr = std::make_shared<WKTree::Node>();
+				newKeywordPtr->complete = true;
+				newKeywordPtr->nameOrValue = literal;
+				literal.clear();
+
+				auto parentPtr = ptrs.back();
+				parentPtr->values.push_back(newKeywordPtr);
+			}
+		}
+		else
+		{
+			literal += c;
+		}
+
+		std::cout << "Literal|" << literal << "|\n";
+		for (auto ptr : ptrs)
+		{
+			auto& node = *ptr;
+			std::cout << "  " << node << "\n";
+		}
+	}
+	wkt.setRoot(ptrs.front());
+
+	// =====
+	std::cout << "VICTORY\n";
+}
+
 Shapefile::Shapefile(const std::filesystem::path& path)
 {
 	// ==== Read the main file ============================================= //
@@ -97,7 +208,7 @@ Shapefile::Shapefile(const std::filesystem::path& path)
 	// Byte buffer
 	char buffer[4];
 
-	// ==== Parse polygons ================================================= //
+	// Parse polygons
 	E2 vertex;
 	for (const auto& record : shp.records)
 	{
@@ -134,6 +245,14 @@ Shapefile::Shapefile(const std::filesystem::path& path)
 			cpoly.polygons.push_back(poly);
 		}
 		regions.push_back(cpoly);
+	}
+
+	// ==== Detect and read the projection file ============================ //
+	auto prjPath = path;
+	prjPath.replace_extension("prj");
+	if (std::filesystem::is_regular_file(prjPath))
+	{
+		PRJReader prj(prjPath);
 	}
 }
 
