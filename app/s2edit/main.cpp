@@ -22,7 +22,10 @@ int main(int argc, char const *argv[])
 		std::to_string(_S2LIKELIB_VERSION_PATCH);
 	std::string inputPath;
 	std::string inputExtension;
-	bool asShapeFile = false;
+
+	bool asShapeFile = false, isShapeFile = false;
+
+	auto shapefilePtr = std::make_unique<S2LM::Parser::Shapefile>();
 
 	std::vector<S2LM::CompoundPolygon> cpolyRegions;
 
@@ -78,17 +81,16 @@ int main(int argc, char const *argv[])
 				}
 
 				// Overrides file extension if specified
-				if (asShapeFile)
+				if (asShapeFile || inputExtension == ".shp")
 				{
-					inputExtension = ".shp";
+					isShapeFile = true;
 				}
 
 				// Parse according to the extension
 				std::cout << "Input: " << inputPath << "\n";
-				if (inputExtension == ".shp")
+				if (isShapeFile)
 				{
-					S2LM::Parser::Shapefile parser(input);
-					cpolyRegions = parser.regions;
+					shapefilePtr->parse(input);
 				}
 				else
 				{
@@ -112,9 +114,27 @@ int main(int argc, char const *argv[])
 	rootMenu->Insert
 	(
 		"input",
-		[&inputPath](std::ostream& ost)
+		[&](std::ostream& ost)
 		{
 			ost << "Input: " << inputPath << "\n";
+			if (isShapeFile)
+			{
+				const auto& sf = *shapefilePtr;
+				ost << "Coordinate system: " << sf.prj.system << "\n"
+					<< "Ellipsoid: ";
+
+				std::ios_base::fmtflags ioFlags;
+				std::streamsize ioPrecision;
+				{
+					ioFlags = ost.flags(std::ios::right);
+					ioPrecision = ost.precision(std::numeric_limits<double>::digits10);
+				}
+				ost << sf.prj.ellipsoid << "\n";
+				{
+					ost.flags(ioFlags);
+					ost.precision(ioPrecision);
+				}
+			}
 		},
 		"Information about the input"
 	);
@@ -122,7 +142,7 @@ int main(int argc, char const *argv[])
 	rootMenu->Insert
 	(
 		"stats",
-		[&cpolyRegions](std::ostream& ost, const std::vector<std::string>& argv)
+		[&](std::ostream& ost, const std::vector<std::string>& argv)
 		{
 			// stats
 			ost << "Count: " << cpolyRegions.size() << " cPoly(s)\n";
@@ -140,13 +160,13 @@ int main(int argc, char const *argv[])
 				ost << "\n";
 			}
 		},
-		"Numerics about loaded regions: <list>"
+		"Numerics about loaded regions: \"list\""
 	);
 
 	rootMenu->Insert
 	(
 		"region",
-		[&cpolyRegions](std::ostream& ost, const std::vector<std::string>& argv)
+		[&](std::ostream& ost, const std::vector<std::string>& argv)
 		{
 			// region
 			if (argv.empty())
@@ -191,17 +211,22 @@ int main(int argc, char const *argv[])
 			{
 				const auto& poly = cpoly.polygons[j];
 				ost << "cPoly[" << index << "][" << j << "]:\n";
-				std::ios_base::fmtflags ioFlags =
-					ost.flags(std::ios::right);
-				std::streamsize ioPrecision =
-					ost.precision(std::numeric_limits<double>::digits10);
+
+				std::ios_base::fmtflags ioFlags;
+				std::streamsize ioPrecision;
+				{
+					ioFlags = ost.flags(std::ios::right);
+					ioPrecision = ost.precision(std::numeric_limits<double>::digits10);
+				}
 				for (size_t k = 0; k < poly.vertices.size(); ++k)
 				{
 					const auto& vertex = poly.vertices[k];
 					ost << "    " << vertex.x << " " << vertex.y << "\n";
 				}
-				ost.flags(ioFlags);
-				ost.precision(ioPrecision);
+				{
+					ost.flags(ioFlags);
+					ost.precision(ioPrecision);
+				}
 			}
 		},
 		"Display information about region: <index> [<subindex>]"

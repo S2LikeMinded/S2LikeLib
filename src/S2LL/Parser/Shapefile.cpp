@@ -7,7 +7,9 @@
 #include <string>
 #include <vector>
 
-using S2LM::Parser::Shapefile;
+using namespace S2LM;
+using namespace S2LM::Parser;
+
 
 unsigned
 read_unsigned_small_endian(std::istream &ifs, char buffer[4])
@@ -19,6 +21,7 @@ read_unsigned_small_endian(std::istream &ifs, char buffer[4])
 		| ((unsigned char)buffer[3]<<24);
 }
 
+
 unsigned
 read_unsigned_big_endian(std::istream &ifs, char buffer[4])
 {
@@ -28,6 +31,7 @@ read_unsigned_big_endian(std::istream &ifs, char buffer[4])
 		| ((unsigned char)buffer[1]<<16)
 		| ((unsigned char)buffer[0]<<24);
 }
+
 
 double
 read_double_small_endian(std::istream &ifs, char buffer[4])
@@ -39,7 +43,15 @@ read_double_small_endian(std::istream &ifs, char buffer[4])
 	return value;
 }
 
-Shapefile::SHPReader::SHPReader(const std::filesystem::path& path)
+
+SHPReader::SHPReader(const std::filesystem::path& path)
+{
+	parse(path);
+}
+
+
+void
+SHPReader::parse(const std::filesystem::path& path)
 {
 	std::ifstream ifs(path, std::ios::binary);
 
@@ -74,7 +86,15 @@ Shapefile::SHPReader::SHPReader(const std::filesystem::path& path)
 	}
 }
 
-Shapefile::PRJReader::PRJReader(const std::filesystem::path& path)
+
+PRJReader::PRJReader(const std::filesystem::path& path)
+{
+	parse(path);
+}
+
+
+void
+PRJReader::parse(const std::filesystem::path& path)
 {
 	std::string content;
 	{
@@ -86,14 +106,10 @@ Shapefile::PRJReader::PRJReader(const std::filesystem::path& path)
 
 	bool enquoted = false;
 	std::string literal;
-	std::vector<WKTree::NodePtr> ptrs;
-
-	std::cout << "Start\n";
+	std::vector<WKTNode::Ptr> ptrs;
 
 	for (char c : content)
 	{
-		std::cout << "Parsing '" << c << "':\n";
-
 		if (enquoted)
 		{
 			literal += c;
@@ -101,7 +117,7 @@ Shapefile::PRJReader::PRJReader(const std::filesystem::path& path)
 			{
 				enquoted = false;
 
-				auto newKeywordPtr = std::make_shared<WKTree::Node>();
+				auto newKeywordPtr = std::make_shared<WKTNode>();
 				ptrs.emplace_back(newKeywordPtr);
 
 				newKeywordPtr->complete = true;
@@ -116,7 +132,7 @@ Shapefile::PRJReader::PRJReader(const std::filesystem::path& path)
 		}
 		else if (c == '[')
 		{
-			auto newKeywordPtr = std::make_shared<WKTree::Node>();
+			auto newKeywordPtr = std::make_shared<WKTNode>();
 			ptrs.emplace_back(newKeywordPtr);
 
 			newKeywordPtr->complete = false;
@@ -136,7 +152,7 @@ Shapefile::PRJReader::PRJReader(const std::filesystem::path& path)
 			}
 			else
 			{
-				auto newKeywordPtr = std::make_shared<WKTree::Node>();
+				auto newKeywordPtr = std::make_shared<WKTNode>();
 				newKeywordPtr->complete = true;
 				newKeywordPtr->nameOrValue = literal;
 				literal.clear();
@@ -158,7 +174,7 @@ Shapefile::PRJReader::PRJReader(const std::filesystem::path& path)
 			}
 			else
 			{
-				auto newKeywordPtr = std::make_shared<WKTree::Node>();
+				auto newKeywordPtr = std::make_shared<WKTNode>();
 				newKeywordPtr->complete = true;
 				newKeywordPtr->nameOrValue = literal;
 				literal.clear();
@@ -171,24 +187,21 @@ Shapefile::PRJReader::PRJReader(const std::filesystem::path& path)
 		{
 			literal += c;
 		}
-
-		std::cout << "Literal|" << literal << "|\n";
-		for (auto ptr : ptrs)
-		{
-			auto& node = *ptr;
-			std::cout << "  " << node << "\n";
-		}
 	}
-	wkt.setRoot(ptrs.front());
-
-	// =====
-	std::cout << "VICTORY\n";
+	wkt = *(ptrs.front());
 }
+
 
 Shapefile::Shapefile(const std::filesystem::path& path)
 {
+	parse(path);
+}
+
+
+void Shapefile::parse(const std::filesystem::path& path)
+{
 	// ==== Read the main file ============================================= //
-	SHPReader shp(path);
+	shp.parse(path);
 
 	if (shp.header.fileCode != 9994)
 	{
@@ -252,7 +265,12 @@ Shapefile::Shapefile(const std::filesystem::path& path)
 	prjPath.replace_extension("prj");
 	if (std::filesystem::is_regular_file(prjPath))
 	{
-		PRJReader prj(prjPath);
+		prj.parse(prjPath);
+		const auto& spheroid = prj.wkt["DATUM"]["SPHEROID"];
+		prj.system = spheroid[0].nameAsString();
+		prj.ellipsoid.x = spheroid[1].valueAsDouble();
+		prj.ellipsoid.y = prj.ellipsoid.y;
+		prj.ellipsoid.z = spheroid[2].valueAsDouble();
 	}
 }
 

@@ -7,7 +7,6 @@
 
 namespace S2LM
 {
-
 	// Plain-old-data type for 2D Cartesian coordinates
 	struct E2
 	{
@@ -37,6 +36,13 @@ namespace S2LM
 
 
 		double z;
+
+
+		friend std::ostream& operator<<(std::ostream& ost, const E3& e3)
+		{
+			ost << e3.x << ' ' << e3.y << ' ' << e3.z;
+			return ost;
+		}
 	};
 
 	// Plain-old-data type for spherical coordinates
