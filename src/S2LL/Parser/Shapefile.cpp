@@ -242,14 +242,14 @@ void Shapefile::parse(const std::filesystem::path& path)
 		}
 		parts[numParts] = numPoints;
 
-		CompoundPolygon cpoly;
+		Compound<Polygon> cpoly;
 		cpoly.polygons.reserve(numParts);
 		for (int i = 0; i < numParts; ++i)
 		{
 			Polygon poly;
 			// (p. 9, J-7855) The rings are closed.
-			poly.vertices.reserve((parts[i+1] - parts[i]) - 1);
-			for (int j = parts[i]; j < parts[i+1] - 1; ++j)
+			poly.vertices.reserve((parts[i+1] - parts[i]));
+			for (int j = parts[i]; j < parts[i+1]; ++j)
 			{
 				vertex.x = read_double_small_endian(iss, buffer);
 				vertex.y = read_double_small_endian(iss, buffer);
@@ -267,15 +267,13 @@ void Shapefile::parse(const std::filesystem::path& path)
 	{
 		prj.parse(prjPath);
 		const auto& spheroid = prj.wkt["DATUM"]["SPHEROID"];
-		prj.system = spheroid[0].nameAsString();
+		prj.system = spheroid.name();
+		prj.prime = prj.wkt["PRIMEM"][1].valueAsDouble();
+		prj.unit = prj.wkt["UNIT"][1].valueAsDouble();
+
 		prj.ellipsoid.x = spheroid[1].valueAsDouble();
-		prj.ellipsoid.y = prj.ellipsoid.y;
-		prj.ellipsoid.z = spheroid[2].valueAsDouble();
+		prj.ellipsoid.y = prj.ellipsoid.x;
+		// Not precise enough
+		prj.ellipsoid.z = prj.ellipsoid.x * (1 - 1.0 / spheroid[2].valueAsDouble());
 	}
-}
-
-
-Shapefile::~Shapefile()
-{
-
 }

@@ -15,10 +15,19 @@ namespace S2LM
 		std::vector<S2LM::E2> vertices;
 	};
 
-	struct CompoundPolygon
+	struct GeodesicLikePolygon
 	{
 
-		std::vector<Polygon> polygons;
+		std::vector<S2LM::E3> vertices;
+	};
+
+	typedef GeodesicLikePolygon GLPolygon;
+
+	template <typename T>
+	struct Compound
+	{
+
+		std::vector<T> polygons;
 	};
 }
 

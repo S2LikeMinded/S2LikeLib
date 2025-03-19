@@ -113,23 +113,23 @@ namespace S2LM
 
 			struct WKTNode
 			{
+			public:
 
 				typedef std::shared_ptr<WKTNode> Ptr;
 
-				// Is complete?
-				bool complete;
+			public:
 
-				// Keyword name, or value string.
-				std::string nameOrValue;
-
-				// Children
-				std::vector<Ptr> values;
+				inline const std::string& key() const { return nameOrValue; }
 
 				// Remove double quotes from name string
-				inline std::string nameAsString() const
+				inline std::string name() const
 				{
-					return nameOrValue.substr(1, nameOrValue.size() - 2);
+					const auto &enquotedName = values[0]->key();
+					return enquotedName.substr(1, enquotedName.size() - 2);
 				}
+
+				// Convert value string to double
+				inline int valueAsInt() const { return std::stoi(nameOrValue); }
 
 				// Convert value string to double
 				inline double valueAsDouble() const { return std::stod(nameOrValue); }
@@ -145,7 +145,7 @@ namespace S2LM
 							return node;
 						}
 					}
-					throw std::runtime_error("child with name not found");
+					throw std::runtime_error("child " + name + " not found");
 				}
 
 				// Find child node using the index
@@ -182,6 +182,16 @@ namespace S2LM
 					}
 					return ost;
 				}
+
+			public:
+				// Is complete?
+				bool complete;
+
+				// Keyword name, or value string.
+				std::string nameOrValue;
+
+				// Children
+				std::vector<Ptr> values;
 			};
 
 		public:
@@ -205,6 +215,12 @@ namespace S2LM
 
 
 			E3 ellipsoid;
+
+
+			double prime;
+
+
+			double unit;
 		};
 
 		// Main parser for Shapefile formats (SHP, PRJ)
@@ -216,9 +232,6 @@ namespace S2LM
 
 
 			Shapefile(const std::filesystem::path& path);
-
-
-			~Shapefile();
 
 		public:
 
@@ -232,7 +245,7 @@ namespace S2LM
 			PRJReader prj;
 
 
-			std::vector<S2LM::CompoundPolygon> regions;
+			std::vector<S2LM::Compound<S2LM::Polygon>> regions;
 		};
 	}
 }

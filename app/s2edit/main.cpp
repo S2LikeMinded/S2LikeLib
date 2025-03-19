@@ -23,14 +23,16 @@ int main(int argc, char const *argv[])
 	std::string inputPath;
 	std::string inputExtension;
 
+	// Shapefile parser
 	bool asShapeFile = false, isShapeFile = false;
-
 	auto shapefilePtr = std::make_unique<S2LM::Parser::Shapefile>();
 
-	std::vector<S2LM::CompoundPolygon> cpolyRegions;
+	// Datum and Cartesian coordinates
+	std::vector<S2LM::Compound<S2LM::Polygon>> cs;
+	std::vector<S2LM::Compound<S2LM::GLPolygon>> cgs;
 
 	// ==== argparse definitions for argument parsing ====================== //
-	argparse::ArgumentParser prog("S2Edit", version);
+	argparse::ArgumentParser prog("s2edit", version);
 
 	// Specifies an input path
 	prog.add_argument("input")
@@ -91,6 +93,7 @@ int main(int argc, char const *argv[])
 				if (isShapeFile)
 				{
 					shapefilePtr->parse(input);
+					cs = shapefilePtr->regions;
 				}
 				else
 				{
@@ -101,6 +104,10 @@ int main(int argc, char const *argv[])
 			{
 				throw std::runtime_error("directory not supported as input");
 			}
+			else
+			{
+				throw std::runtime_error("input not a file or directory");
+			}
 		}
 	}
 	catch (const std::exception& e)
@@ -110,18 +117,28 @@ int main(int argc, char const *argv[])
 	}
 
 	// ==== Configure interactive facility ================================= //
-	auto rootMenu = std::make_unique<cli::Menu>("S2Edit");
+	auto rootMenu = std::make_unique<cli::Menu>("s2edit");
 	rootMenu->Insert
 	(
 		"input",
 		[&](std::ostream& ost)
 		{
-			ost << "Input: " << inputPath << "\n";
+			ost << "\tInput: " << inputPath << "\n";
 			if (isShapeFile)
 			{
 				const auto& sf = *shapefilePtr;
-				ost << "Coordinate system: " << sf.prj.system << "\n"
-					<< "Ellipsoid: ";
+				const auto& wkt = sf.prj.wkt;
+
+				std::string gcsName = wkt.key();
+				std::string unitName = wkt["UNIT"].name();
+				std::string primeMName = wkt["PRIMEM"].name();
+				std::string datumName = wkt["DATUM"].name();
+				std::string spheroidName = wkt["DATUM"]["SPHEROID"].name();
+				double unit = wkt["UNIT"][1].valueAsDouble();
+				double primeM = wkt["PRIMEM"][1].valueAsDouble();
+				double equatorialRadius = wkt["DATUM"]["SPHEROID"][1].valueAsDouble();
+				double invFlat = wkt["DATUM"]["SPHEROID"][2].valueAsDouble();
+				double polarRadius = equatorialRadius - equatorialRadius / invFlat;
 
 				std::ios_base::fmtflags ioFlags;
 				std::streamsize ioPrecision;
@@ -129,7 +146,14 @@ int main(int argc, char const *argv[])
 					ioFlags = ost.flags(std::ios::right);
 					ioPrecision = ost.precision(std::numeric_limits<double>::digits10);
 				}
-				ost << sf.prj.ellipsoid << "\n";
+				ost << "\tGeographic Coordinate System: " << gcsName << "\n"
+					<< "\tAngular Unit: " << unitName << " (" << unit << ")\n"
+					<< "\tPrime Meridian: " << primeMName << " (" << primeM << ")\n"
+					<< "\tDatum: " << datumName << "\n"
+					<< "\tSpheroid: " << spheroidName << "\n"
+					<< "\tSemimajor Axis: " << equatorialRadius << "\n"
+					<< "\tSemiminor Axis: " << polarRadius << "\n"
+					<< "\tInverse Flattening: " << invFlat << "\n";
 				{
 					ost.flags(ioFlags);
 					ost.precision(ioPrecision);
@@ -141,26 +165,53 @@ int main(int argc, char const *argv[])
 
 	rootMenu->Insert
 	(
-		"stats",
+		"count",
 		[&](std::ostream& ost, const std::vector<std::string>& argv)
 		{
-			// stats
-			ost << "Count: " << cpolyRegions.size() << " cPoly(s)\n";
-			if (argv.empty()) return;
+			// count
+			ost << "\tE2 compound polygons: " << cs.size() << "\n"
+				<< "\tE3 compound polygons: " << cgs.size() << "\n";
 
-			// stats list
-			if (argv[0] == "list")
+			// count detail
+			if (argv.size() == 1 && argv[0] == "detail")
 			{
-				for (size_t i = 0; i < cpolyRegions.size(); ++i)
+				for (size_t i = 0; i < cs.size(); ++i)
 				{
-					const auto& cpoly = cpolyRegions[i];
+					const auto& cpoly = cs[i];
 					ost << "cPoly[" << i << "]: "
-						<< cpoly.polygons.size() << " Poly(s)\n";
+						<< cpoly.polygons.size() << " E2 polygon(s)\n";
 				}
-				ost << "\n";
+				for (size_t i = 0; i < cgs.size(); ++i)
+				{
+					const auto& cglpoly = cgs[i];
+					ost << "cGLPoly[" << i << "]: "
+						<< cglpoly.polygons.size() << " E3 polygon(s)\n";
+				}
 			}
 		},
-		"Numerics about loaded regions: \"list\""
+		"Numerics about loaded regions: \"detail\""
+	);
+
+	rootMenu->Insert
+	(
+		"convert",
+		[&](std::ostream& ost, const std::vector<std::string>& argv)
+		{
+			std::cout << "Converting...\n";
+			std::cout << "Conversion complete!\n";
+		},
+		"Convert E2 coordinates to E3 coordinates"
+	);
+
+	rootMenu->Insert
+	(
+		"export",
+		[&](std::ostream& ost, const std::string& fileName)
+		{
+			std::cout << "Exporting...\n";
+			std::cout << "Export complete!\n";
+		},
+		"Export to <fileName>.s2lm"
 	);
 
 	rootMenu->Insert
@@ -182,12 +233,12 @@ int main(int argc, char const *argv[])
 
 			// region <index> [<subindex>]
 			int index = std::stoi(argv[0]);
-			if (index >= cpolyRegions.size())
+			if (index >= cs.size())
 			{
-				ost << "Only " << cpolyRegions.size() << " compound polygons\n";
+				ost << "Only " << cs.size() << " compound polygons\n";
 				return;
 			}
-			const auto& cpoly = cpolyRegions[index];
+			const auto& cpoly = cs[index];
 
 			size_t subIndexStart, subIndexFinal;
 			if (argv.size() == 2)
@@ -221,7 +272,7 @@ int main(int argc, char const *argv[])
 				for (size_t k = 0; k < poly.vertices.size(); ++k)
 				{
 					const auto& vertex = poly.vertices[k];
-					ost << "    " << vertex.x << " " << vertex.y << "\n";
+					ost << "    " << vertex << "\n";
 				}
 				{
 					ost.flags(ioFlags);
@@ -237,7 +288,7 @@ int main(int argc, char const *argv[])
 
 	// Entry
 	cli.EnterAction([&version](std::ostream& ost) {
-		ost << "S2Edit Command-Line Interface " << version << "\n";
+		ost << "s2edit Command-Line Interface " << version << "\n";
 	});
 
 	cli::LoopScheduler scheduler;
@@ -245,7 +296,7 @@ int main(int argc, char const *argv[])
 
 	// Exit
 	cli.ExitAction([&scheduler](std::ostream& ost) {
-		ost << "S2Edit CLI Exiting...\n";
+		ost << "s2edit CLI Exiting...\n";
 		scheduler.Stop();
 	});
 

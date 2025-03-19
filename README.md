@@ -16,3 +16,9 @@ cd S2LikeLib && mkdir build
 cmake -B build
 cmake --build build
 ```
+
+## Modules
+
+ - The Shapefile parser, containing:
+   - [shp](https://en.wikipedia.org/wiki/Shapefile#Shapefile_shape_format_(.shp)) by `S2LM::Parser::SHPReader` for Polygon (shape type 5) only
+   - [prj](https://docs.ogc.org/is/18-010r11/18-010r11.pdf) by `S2LM::Parser::PRJReader` as a [tree](https://en.wikipedia.org/wiki/Tree_(abstract_data_type))
