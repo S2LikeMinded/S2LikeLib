@@ -266,16 +266,19 @@ void Shapefile::parse(const std::filesystem::path& path)
 	if (std::filesystem::is_regular_file(prjPath))
 	{
 		prj.parse(prjPath);
-		const auto& geogcs = prj.wkt.depthFirstKey("GEOGCS");
+		const auto& geogcs = prj.wkt("GEOGCS");
 
 		const auto& spheroid = geogcs["DATUM"]["SPHEROID"];
 		prj.system = spheroid.name();
-		prj.prime = geogcs["PRIMEM"][1].valueAsDouble();
-		prj.unit = geogcs["UNIT"][1].valueAsDouble();
+		prj.prime = geogcs["PRIMEM"].getDouble();
+		prj.unit = geogcs["UNIT"].getDouble();
 
-		prj.ellipsoid.x = spheroid[1].valueAsDouble();
-		prj.ellipsoid.y = prj.ellipsoid.x;
+		double equatorialRadius = spheroid.getDouble(1);
+		double invFlattening = spheroid.getDouble(2);
+
+		prj.ellipsoid.x = equatorialRadius;
+		prj.ellipsoid.y = equatorialRadius;
 		// Not precise enough
-		prj.ellipsoid.z = prj.ellipsoid.x * (1 - 1.0 / spheroid[2].valueAsDouble());
+		prj.ellipsoid.z = equatorialRadius * (1 - 1.0 / invFlattening);
 	}
 }

@@ -132,18 +132,25 @@ int main(int argc, char const *argv[])
 			{
 				const auto& sf = *shapefilePtr;
 				const auto& wkt = sf.prj.wkt;
+				
+				if (!wkt.hasKey("GEOGCS"))
+				{
+					ost << "GEOGCS[] not found\n";
+					return;
+				}
 
-				const auto& geogcs = wkt.depthFirstKey("GEOGCS");
-				std::string gcsName = geogcs.key();
+				const auto& geogcs = wkt("GEOGCS");
+				const auto& datum = geogcs["DATUM"];
+				std::string gcsName = geogcs.name();
 				std::string unitName = geogcs["UNIT"].name();
 				std::string primeMName = geogcs["PRIMEM"].name();
-				std::string datumName = geogcs["DATUM"].name();
-				std::string spheroidName = geogcs["DATUM"]["SPHEROID"].name();
-				double unit = geogcs["UNIT"][1].valueAsDouble();
-				double primeM = geogcs["PRIMEM"][1].valueAsDouble();
-				double equatorialRadius = geogcs["DATUM"]["SPHEROID"][1].valueAsDouble();
-				double invFlat = geogcs["DATUM"]["SPHEROID"][2].valueAsDouble();
-				double polarRadius = equatorialRadius - equatorialRadius / invFlat;
+				std::string datumName = datum.name();
+				std::string spheroidName = datum["SPHEROID"].name();
+				double unit = geogcs["UNIT"].getDouble();
+				double primeM = geogcs["PRIMEM"].getDouble();
+				double equatorialRadius = datum["SPHEROID"].getDouble(1);
+				double invFlattening = datum["SPHEROID"].getDouble(2);
+				double polarRadius = equatorialRadius - equatorialRadius / invFlattening;
 
 				std::ios_base::fmtflags ioFlags;
 				std::streamsize ioPrecision;
@@ -158,24 +165,28 @@ int main(int argc, char const *argv[])
 					<< "\tSpheroid: " << spheroidName << "\n"
 					<< "\tSemimajor Axis: " << equatorialRadius << "\n"
 					<< "\tSemiminor Axis: " << polarRadius << "\n"
-					<< "\tInverse Flattening: " << invFlat << "\n";
+					<< "\tInverse Flattening: " << invFlattening << "\n";
 				{
 					ost.flags(ioFlags);
 					ost.precision(ioPrecision);
 				}
-				
-				if (!wkt.hasKey("PROJCS")) return;
 
-				const auto& projcs = wkt.depthFirstKey("PROJCS");
+				if (!wkt.hasKey("PROJCS"))
+				{
+					ost << "PROJCS[] not found\n";
+					return;
+				}
+
+				const auto& projcs = wkt("PROJCS");
 				std::string pcsName = projcs.name();
 				std::string prjName = projcs["PROJECTION"].name();
 				std::string unitProjName = projcs["UNIT"].name();
-				double falseE = projcs.depthFirstKey("PARAMETER", "False_Easting")[1].valueAsDouble();
-				double falseN = projcs.depthFirstKey("PARAMETER", "False_Northing")[1].valueAsDouble();
-				double centralM = projcs.depthFirstKey("PARAMETER", "Central_Meridian")[1].valueAsDouble();
-				double standardP1 = projcs.depthFirstKey("PARAMETER", "Standard_Parallel_1")[1].valueAsDouble();
-				double auxS = projcs.depthFirstKey("PARAMETER", "Auxiliary_Sphere_Type")[1].valueAsDouble();
-				double unitProj = projcs["UNIT"][1].valueAsDouble();
+				double falseE = projcs("PARAMETER", "False_Easting").getDouble();
+				double falseN = projcs("PARAMETER", "False_Northing").getDouble();
+				double centralM = projcs("PARAMETER", "Central_Meridian").getDouble();
+				double standardP1 = projcs("PARAMETER", "Standard_Parallel_1").getDouble();
+				double auxS = projcs("PARAMETER", "Auxiliary_Sphere_Type").getDouble();
+				double unitProj = projcs["UNIT"].getDouble();
 
 				ost << "\tProjection Coordinate System: " << pcsName << "\n"
 					<< "\tProjection Name: " << prjName << "\n"
@@ -224,15 +235,32 @@ int main(int argc, char const *argv[])
 		"convert",
 		[&](std::ostream& ost, const std::vector<std::string>& argv)
 		{
-			if (!isShapefile)
-			{
-				return;
-			}
 			ost << "Converting...\n";
 			cgs.clear();
 
-			S2LM::E3 ellipsoid = shapefilePtr->prj.ellipsoid;
-			double unit = shapefilePtr->prj.wkt["UNIT"][1].valueAsDouble();
+			S2LM::E3 e;
+			e.x = 1.0;
+			e.y = 1.0;
+			e.z = 1.0;
+			double unit = 1.0;
+
+			if (isShapefile)
+			{
+				const auto& sf = *shapefilePtr;
+				const auto& wkt = sf.prj.wkt;
+
+				if (wkt.hasKey("GEOGCS"))
+				{
+					const auto& geogcs = wkt("GEOGCS");
+					unit = geogcs["UNIT"].getDouble();
+
+					double a = geogcs("SPHEROID").getDouble(1);
+					double invF = geogcs("SPHEROID").getDouble(2);
+					e.x = a;
+					e.y = a;
+					e.z = a - a / invF;
+				}
+			}
 
 			double r;
 			S2LM::S2 spc;
@@ -251,11 +279,11 @@ int main(int argc, char const *argv[])
 					{
 						spc.p = v.x * unit;
 						spc.a = v.y * unit;
-						r = ellipsoid.x * sin(spc.p);
+						r = e.x * sin(spc.p);
 
 						Q.x = r * cos(spc.a);
 						Q.y = r * sin(spc.a);;
-						Q.z = ellipsoid.y * cos(spc.p);
+						Q.z = e.y * cos(spc.p);
 						g.vertices.push_back(Q);
 					}
 				}
@@ -284,8 +312,10 @@ int main(int argc, char const *argv[])
 			}
 			for (const auto& c : cgs)
 			{
+				ofs << "====\n";
 				for (const auto& p : c.polygons)
 				{
+					ofs << "----\n";
 					for (const auto& v : p.vertices)
 					{
 						ofs << v << "\n";

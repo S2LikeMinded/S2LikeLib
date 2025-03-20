@@ -182,7 +182,10 @@ namespace S2LM
 				inline int valueAsInt() const { return std::stoi(nameOrValue); }
 
 				// Convert value string to double
-				inline double valueAsDouble() const { return std::stod(nameOrValue); }
+				inline double getDouble(size_t index = 1) const
+				{
+					return std::stod(values[index]->nameOrValue);
+				}
 
 				// Find child node with the same name
 				const WKTNode& operator[](const std::string& name) const
@@ -202,6 +205,13 @@ namespace S2LM
 				const WKTNode& operator[](size_t index) const
 				{
 					return *values[index];
+				}
+
+
+				const WKTNode&
+				operator()(const std::string& key, const std::string& name = "") const
+				{
+					return depthFirstKey(key, name);
 				}
 
 				//

@@ -1,8 +1,9 @@
-# CMake intermediate directories
-build/
+# Intermediate directories
 bin/
-lib/
+build/
+doc/
 include/
+lib/
 
 # Spotlight
 .DS_Store
