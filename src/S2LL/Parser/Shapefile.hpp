@@ -3,6 +3,10 @@
 #define __SHAPEFILE_HPP__
 
 #include <S2LL/Core/Regions.hpp>
+#include <S2LL/Core/Utilities.hpp>
+#ifdef S2LL_WIN_OS
+#	include <string>
+#endif
 
 #include <filesystem>
 #include <memory>
@@ -119,6 +123,52 @@ namespace S2LM
 
 			public:
 
+				bool
+				hasKey (
+					const std::string& key,
+					const std::string& name = ""
+				) const
+				{
+					return depthFirstKeyPtr(key, name) != nullptr;
+				}
+
+
+				const WKTNode&
+				depthFirstKey(
+					const std::string& key,
+					const std::string& name = ""
+				) const
+				{
+					if (depthFirstKeyPtr(key, name) == nullptr)
+						throw std::runtime_error("depthFirstKey nullptr deferenced");
+					return *depthFirstKeyPtr(key, name);
+				}
+
+				// Recursive implementation of DFS on WKTNode key.
+				const WKTNode*
+				depthFirstKeyPtr(
+					const std::string& key,
+					const std::string& name = ""
+				) const
+				{
+					std::vector<const WKTNode*> queue = { this };
+					while (!queue.empty())
+					{
+						const auto& node = *(queue.back());
+						queue.pop_back();
+						if ((node.key() == key) &&
+							(node.name() == name || name.empty()))
+						{
+							return &node;
+						}
+						for (size_t i = node.values.size(); i>0; --i)
+						{
+							queue.push_back(node.values[i-1].get());
+						}
+					}
+					return nullptr;
+				}
+
 				inline const std::string& key() const { return nameOrValue; }
 
 				// Remove double quotes from name string
@@ -135,7 +185,7 @@ namespace S2LM
 				inline double valueAsDouble() const { return std::stod(nameOrValue); }
 
 				// Find child node with the same name
-				const WKTNode& operator[](std::string const& name) const
+				const WKTNode& operator[](const std::string& name) const
 				{
 					for (const auto ptr : values)
 					{

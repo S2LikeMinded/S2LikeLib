@@ -10,11 +10,8 @@ namespace S2LM
 	// Plain-old-data type for 2D Cartesian coordinates
 	struct E2
 	{
-
-		double x;
-
-
-		double y;
+		// 2D Cartesian coordinates
+		double x, y;
 
 
 		friend std::ostream& operator<<(std::ostream& ost, const E2& e2)
@@ -27,14 +24,9 @@ namespace S2LM
 	// Plain-old-data type for 3D Cartesian coordinates
 	struct E3
 	{
-
-		double x;
-
-
-		double y;
-
-
-		double z;
+	public:
+		// 3D Cartesian coordinates
+		double x, y, z;
 
 
 		friend std::ostream& operator<<(std::ostream& ost, const E3& e3)
@@ -47,14 +39,19 @@ namespace S2LM
 	// Plain-old-data type for spherical coordinates
 	struct S2
 	{
-
-		S2(double p, double a) : p(p), a(a) {}
-
+	public:
 		// Polar angle, in radians
 		double p;
 
 		// Azimuthal angle, in radians
 		double a;
+
+
+		friend std::ostream& operator<<(std::ostream& ost, const S2& s2)
+		{
+			ost << s2.p << ' ' << s2.a;
+			return ost;
+		}
 	};
 
 }

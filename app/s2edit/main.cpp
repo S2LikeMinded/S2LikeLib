@@ -11,20 +11,24 @@
 
 #include <algorithm>
 #include <filesystem>
-#include <locale>
+#include <fstream>
 #include <iomanip>
+#include <locale>
+
 
 int main(int argc, char const *argv[])
 {
-	std::string version =
+	const std::string name = "s2edit";
+	const std::string version =
 		std::to_string(_S2LIKELIB_VERSION_MAJOR) + "." +
 		std::to_string(_S2LIKELIB_VERSION_MINOR) + "." +
 		std::to_string(_S2LIKELIB_VERSION_PATCH);
+
 	std::string inputPath;
 	std::string inputExtension;
 
 	// Shapefile parser
-	bool asShapeFile = false, isShapeFile = false;
+	bool asShapefile = false, isShapefile = false;
 	auto shapefilePtr = std::make_unique<S2LM::Parser::Shapefile>();
 
 	// Datum and Cartesian coordinates
@@ -32,7 +36,7 @@ int main(int argc, char const *argv[])
 	std::vector<S2LM::Compound<S2LM::GLPolygon>> cgs;
 
 	// ==== argparse definitions for argument parsing ====================== //
-	argparse::ArgumentParser prog("s2edit", version);
+	argparse::ArgumentParser prog(name, version);
 
 	// Specifies an input path
 	prog.add_argument("input")
@@ -44,7 +48,7 @@ int main(int argc, char const *argv[])
 	auto &fmts = prog.add_mutually_exclusive_group();
 	fmts.add_argument("--shapefile").flag()
 		.help("Read all Esri Shapefiles associated with the path of input")
-		.store_into(asShapeFile);
+		.store_into(asShapefile);
 
 	// Enables verbose mode
 	prog.add_argument("--verbose").flag()
@@ -83,14 +87,14 @@ int main(int argc, char const *argv[])
 				}
 
 				// Overrides file extension if specified
-				if (asShapeFile || inputExtension == ".shp")
+				if (asShapefile || inputExtension == ".shp")
 				{
-					isShapeFile = true;
+					isShapefile = true;
 				}
 
 				// Parse according to the extension
 				std::cout << "Input: " << inputPath << "\n";
-				if (isShapeFile)
+				if (isShapefile)
 				{
 					shapefilePtr->parse(input);
 					cs = shapefilePtr->regions;
@@ -117,27 +121,28 @@ int main(int argc, char const *argv[])
 	}
 
 	// ==== Configure interactive facility ================================= //
-	auto rootMenu = std::make_unique<cli::Menu>("s2edit");
+	auto rootMenu = std::make_unique<cli::Menu>(name);
 	rootMenu->Insert
 	(
 		"input",
 		[&](std::ostream& ost)
 		{
 			ost << "\tInput: " << inputPath << "\n";
-			if (isShapeFile)
+			if (isShapefile)
 			{
 				const auto& sf = *shapefilePtr;
 				const auto& wkt = sf.prj.wkt;
 
-				std::string gcsName = wkt.key();
-				std::string unitName = wkt["UNIT"].name();
-				std::string primeMName = wkt["PRIMEM"].name();
-				std::string datumName = wkt["DATUM"].name();
-				std::string spheroidName = wkt["DATUM"]["SPHEROID"].name();
-				double unit = wkt["UNIT"][1].valueAsDouble();
-				double primeM = wkt["PRIMEM"][1].valueAsDouble();
-				double equatorialRadius = wkt["DATUM"]["SPHEROID"][1].valueAsDouble();
-				double invFlat = wkt["DATUM"]["SPHEROID"][2].valueAsDouble();
+				const auto& geogcs = wkt.depthFirstKey("GEOGCS");
+				std::string gcsName = geogcs.key();
+				std::string unitName = geogcs["UNIT"].name();
+				std::string primeMName = geogcs["PRIMEM"].name();
+				std::string datumName = geogcs["DATUM"].name();
+				std::string spheroidName = geogcs["DATUM"]["SPHEROID"].name();
+				double unit = geogcs["UNIT"][1].valueAsDouble();
+				double primeM = geogcs["PRIMEM"][1].valueAsDouble();
+				double equatorialRadius = geogcs["DATUM"]["SPHEROID"][1].valueAsDouble();
+				double invFlat = geogcs["DATUM"]["SPHEROID"][2].valueAsDouble();
 				double polarRadius = equatorialRadius - equatorialRadius / invFlat;
 
 				std::ios_base::fmtflags ioFlags;
@@ -158,6 +163,28 @@ int main(int argc, char const *argv[])
 					ost.flags(ioFlags);
 					ost.precision(ioPrecision);
 				}
+				
+				if (!wkt.hasKey("PROJCS")) return;
+
+				const auto& projcs = wkt.depthFirstKey("PROJCS");
+				std::string pcsName = projcs.name();
+				std::string prjName = projcs["PROJECTION"].name();
+				std::string unitProjName = projcs["UNIT"].name();
+				double falseE = projcs.depthFirstKey("PARAMETER", "False_Easting")[1].valueAsDouble();
+				double falseN = projcs.depthFirstKey("PARAMETER", "False_Northing")[1].valueAsDouble();
+				double centralM = projcs.depthFirstKey("PARAMETER", "Central_Meridian")[1].valueAsDouble();
+				double standardP1 = projcs.depthFirstKey("PARAMETER", "Standard_Parallel_1")[1].valueAsDouble();
+				double auxS = projcs.depthFirstKey("PARAMETER", "Auxiliary_Sphere_Type")[1].valueAsDouble();
+				double unitProj = projcs["UNIT"][1].valueAsDouble();
+
+				ost << "\tProjection Coordinate System: " << pcsName << "\n"
+					<< "\tProjection Name: " << prjName << "\n"
+					<< "\tFalse Easting: " << falseE << "\n"
+					<< "\tFalse Northing: " << falseN << "\n"
+					<< "\tCentral Meridian: " << centralM << "\n"
+					<< "\tStandard Parallel 1: " << standardP1 << "\n"
+					<< "\tFalse Easting: " << auxS << "\n"
+					<< "\tUnit: " << unitProjName << " (" << unitProj << ")\n";
 			}
 		},
 		"Information about the input"
@@ -197,10 +224,45 @@ int main(int argc, char const *argv[])
 		"convert",
 		[&](std::ostream& ost, const std::vector<std::string>& argv)
 		{
-			std::cout << "Converting...\n";
-			std::cout << "Conversion complete!\n";
+			if (!isShapefile)
+			{
+				return;
+			}
+			ost << "Converting...\n";
+			cgs.clear();
+
+			S2LM::E3 ellipsoid = shapefilePtr->prj.ellipsoid;
+			double unit = shapefilePtr->prj.wkt["UNIT"][1].valueAsDouble();
+
+			double r;
+			S2LM::S2 spc;
+			S2LM::E3 Q;
+			cgs.reserve(cs.size());
+			for (const auto& c : cs)
+			{
+				cgs.emplace_back();
+				auto& cg = cgs.back();
+				cg.polygons.reserve(c.polygons.size());
+				for (const auto& p : c.polygons)
+				{
+					auto& g = cg.polygons.emplace_back();
+					g.vertices.reserve(p.vertices.size());
+					for (const auto& v : p.vertices)
+					{
+						spc.p = v.x * unit;
+						spc.a = v.y * unit;
+						r = ellipsoid.x * sin(spc.p);
+
+						Q.x = r * cos(spc.a);
+						Q.y = r * sin(spc.a);;
+						Q.z = ellipsoid.y * cos(spc.p);
+						g.vertices.push_back(Q);
+					}
+				}
+			}
+			ost << "Conversion complete!\n";
 		},
-		"Convert E2 coordinates to E3 coordinates"
+		"Convert spherical coordinates to 3D Cartesian coordinates"
 	);
 
 	rootMenu->Insert
@@ -208,8 +270,33 @@ int main(int argc, char const *argv[])
 		"export",
 		[&](std::ostream& ost, const std::string& fileName)
 		{
-			std::cout << "Exporting...\n";
-			std::cout << "Export complete!\n";
+			ost << "Exporting...\n";
+
+			auto outPath = std::filesystem::path(fileName);
+			outPath.replace_extension(".s2lm");
+			std::ofstream ofs(outPath);
+
+			std::ios_base::fmtflags ioFlags;
+			std::streamsize ioPrecision;
+			{
+				ioFlags = ofs.flags(std::ios::right);
+				ioPrecision = ofs.precision(std::numeric_limits<double>::digits10);
+			}
+			for (const auto& c : cgs)
+			{
+				for (const auto& p : c.polygons)
+				{
+					for (const auto& v : p.vertices)
+					{
+						ofs << v << "\n";
+					}
+				}
+			}
+			{
+				ofs.flags(ioFlags);
+				ofs.precision(ioPrecision);
+			}
+			ost << "Export complete!\n";
 		},
 		"Export to <fileName>.s2lm"
 	);
@@ -287,16 +374,16 @@ int main(int argc, char const *argv[])
 	cli::Cli cli(std::move(rootMenu));
 
 	// Entry
-	cli.EnterAction([&version](std::ostream& ost) {
-		ost << "s2edit Command-Line Interface " << version << "\n";
+	cli.EnterAction([&name,&version](std::ostream& ost) {
+		ost << name << " Command-Line Interface " << version << "\n";
 	});
 
 	cli::LoopScheduler scheduler;
 	cli::CliLocalTerminalSession localSession(cli, scheduler, std::cout);
 
 	// Exit
-	cli.ExitAction([&scheduler](std::ostream& ost) {
-		ost << "s2edit CLI Exiting...\n";
+	cli.ExitAction([&name,&scheduler](std::ostream& ost) {
+		ost << name << " CLI Exiting...\n";
 		scheduler.Stop();
 	});
 
