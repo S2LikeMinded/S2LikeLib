@@ -40,3 +40,6 @@ lib/
 *.exe
 *.out
 *.app
+
+# Visual Studio Solution Settings folder
+.vs

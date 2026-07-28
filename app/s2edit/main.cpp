@@ -10,10 +10,12 @@
 #include <cli/loopscheduler.h>
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iomanip>
 #include <locale>
+
 
 
 int main(int argc, char const *argv[])
