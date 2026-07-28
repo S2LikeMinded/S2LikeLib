@@ -9,7 +9,7 @@
 #include <filesystem>
 #include <memory>
 
-namespace S2LM
+namespace S2LL
 {
 
 	namespace Parser
@@ -303,7 +303,7 @@ namespace S2LM
 			PRJReader prj;
 
 
-			std::vector<S2LM::Compound<S2LM::Polygon>> regions;
+			std::vector<S2LL::Compound<S2LL::Polygon>> regions;
 		};
 	}
 }

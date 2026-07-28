@@ -20,7 +20,7 @@
 
 int main(int argc, char const *argv[])
 {
-	const std::string name = "s2edit";
+	const std::string name = "S2Edit";
 	const std::string version =
 		std::to_string(_S2LIKELIB_VERSION_MAJOR) + "." +
 		std::to_string(_S2LIKELIB_VERSION_MINOR) + "." +
@@ -31,11 +31,11 @@ int main(int argc, char const *argv[])
 
 	// Shapefile parser
 	bool asShapefile = false, isShapefile = false;
-	auto shapefilePtr = std::make_unique<S2LM::Parser::Shapefile>();
+	auto shapefilePtr = std::make_unique<S2LL::Parser::Shapefile>();
 
 	// Datum and Cartesian coordinates
-	std::vector<S2LM::Compound<S2LM::Polygon>> cs;
-	std::vector<S2LM::Compound<S2LM::GLPolygon>> cgs;
+	std::vector<S2LL::Compound<S2LL::Polygon>> cs;
+	std::vector<S2LL::Compound<S2LL::GLPolygon>> cgs;
 
 	// ==== argparse definitions for argument parsing ====================== //
 	argparse::ArgumentParser prog(name, version);
@@ -240,7 +240,7 @@ int main(int argc, char const *argv[])
 			ost << "Converting...\n";
 			cgs.clear();
 
-			S2LM::E3 e;
+			S2LL::E3 e;
 			e.x = 1.0;
 			e.y = 1.0;
 			e.z = 1.0;
@@ -265,8 +265,8 @@ int main(int argc, char const *argv[])
 			}
 
 			double r;
-			S2LM::S2 spc;
-			S2LM::E3 Q;
+			S2LL::S2 spc;
+			S2LL::E3 Q;
 			cgs.reserve(cs.size());
 			for (const auto& c : cs)
 			{

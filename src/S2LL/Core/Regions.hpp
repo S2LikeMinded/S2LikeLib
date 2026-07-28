@@ -4,19 +4,19 @@
 
 #include <vector>
 
-namespace S2LM
+namespace S2LL
 {
 
 	struct Polygon
 	{
 
-		std::vector<S2LM::E2> vertices;
+		std::vector<S2LL::E2> vertices;
 	};
 
 	struct GeodesicLikePolygon
 	{
 
-		std::vector<S2LM::E3> vertices;
+		std::vector<S2LL::E3> vertices;
 	};
 
 	typedef GeodesicLikePolygon GLPolygon;

@@ -4,7 +4,7 @@
 
 
 
-namespace S2LM
+namespace S2LL
 {
 	// Plain-old-data type for 2D Cartesian coordinates
 	struct E2
@@ -53,4 +53,21 @@ namespace S2LM
 		}
 	};
 
+	// Plain-old-data type for generic latitude-longitude coordinate pair
+	struct LatLon
+	{
+	public:
+		// Some latitude, in radians
+		double lat;
+
+		// Some longitude, in radians
+		double lon;
+
+
+		friend std::ostream& operator<<(std::ostream& ost, const LatLon& ll)
+		{
+			ost << ll.lat << ' ' << ll.lon;
+			return ost;
+		}
+	};
 }

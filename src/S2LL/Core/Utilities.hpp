@@ -7,4 +7,3 @@
 #else
 #	error "Compiler not suppoted"
 #endif
-

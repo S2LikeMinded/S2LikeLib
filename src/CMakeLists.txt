@@ -1,5 +1,6 @@
 add_library(S2LL STATIC
 	S2LL/Core/E2.cpp
+	S2LL/Core/Ellipsoid.cpp
 	S2LL/Core/Polygon.cpp
 	S2LL/Parser/Shapefile.cpp
 )

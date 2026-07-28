@@ -7,8 +7,8 @@
 #include <string>
 #include <vector>
 
-using namespace S2LM;
-using namespace S2LM::Parser;
+using namespace S2LL;
+using namespace S2LL::Parser;
 
 
 unsigned

@@ -1,12 +1,14 @@
-# S2LikeLib
+# S<sup>2</sup>LikeLib
 
+*Under active development.*
 A lightweight, efficient, and robust suite of C++17 tools and library for spheres and sphere-like surfaces.
 
 
 ## Dependencies
 
- - `p-ranav/argparse` [[GitHub]](https://github.com/p-ranav/argparse) [[vcpkg]](https://vcpkg.io/en/package/argparse) (thru [CMake](https://cmake.org/cmake/help/latest/module/FetchContent.html#overview))
- - `daniele77/cli` [[GitHub]](https://github.com/daniele77/cli) [[vcpkg]](https://vcpkg.io/en/package/cli) (thru CMake)
+ - `p-ranav/argparse` [[GitHub]](https://github.com/p-ranav/argparse) [[vcpkg]](https://vcpkg.io/en/package/argparse) (through CMake)
+ - `daniele77/cli` [[GitHub]](https://github.com/daniele77/cli) [[vcpkg]](https://vcpkg.io/en/package/cli) (through CMake)
+ - `catchorg/Catch2` [[GitHub]](https://github.com/catchorg/Catch2) [[vcpkg]](https://vcpkg.io/en/package/catch2) (through CMake)
 
 
 ## Build & Installation Instructions
@@ -48,5 +50,13 @@ cmake --install build
 ## Modules
 
  - Shapefile parser, containing:
-   - [shp](https://en.wikipedia.org/wiki/Shapefile#Shapefile_shape_format_(.shp)) by `S2LM::Parser::SHPReader` for Polygon (shape type 5) only
-   - [prj](https://docs.ogc.org/is/18-010r11/18-010r11.pdf) by `S2LM::Parser::PRJReader` as a [tree](https://en.wikipedia.org/wiki/Tree_(abstract_data_type))
+   - [shp](https://en.wikipedia.org/wiki/Shapefile#Shapefile_shape_format_(.shp)) by `S2LL::Parser::SHPReader` for Polygon (shape type 5) only
+   - [prj](https://docs.ogc.org/is/18-010r11/18-010r11.pdf) by `S2LL::Parser::PRJReader` as a [tree](https://en.wikipedia.org/wiki/Tree_(abstract_data_type))
+
+# Apps
+
+Applications are implemented in individual folders under `./app` and compiled into `./bin`.
+
+## S<sup>2</sup>Edit
+
+An interactive CLI tool for inspecting, processing, and editing ellipsoidal and spherical geographic regions.

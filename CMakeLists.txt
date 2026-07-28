@@ -3,9 +3,10 @@ project(S2LikeLib VERSION 0.0.1)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 include(FetchContent)
 
-find_package(argparse CONFIG QUIET)
+find_package(argparse 3.0 CONFIG QUIET)
 if(NOT argparse_FOUND)
 	FetchContent_Declare(argparse
 		GIT_REPOSITORY https://github.com/p-ranav/argparse.git
@@ -61,6 +62,12 @@ install(FILES
 	"${CMAKE_CURRENT_BINARY_DIR}/S2LikeLibConfigVersion.cmake"
 	DESTINATION ${S2LIKELIB_INSTALL_CMAKEDIR}
 )
+
+option(BUILD_TESTING "Build the unit tests" ON)
+if(BUILD_TESTING)
+	enable_testing()
+	add_subdirectory(test)
+endif()
 
 # Print all cmake variables for debugging purposes.
 #
