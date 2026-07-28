@@ -1,8 +1,7 @@
-
-#ifndef __POINT_HPP__
-#define __POINT_HPP__
+#pragma once
 
 #include <ostream>
+
 
 
 namespace S2LM
@@ -55,5 +54,3 @@ namespace S2LM
 	};
 
 }
-
-#endif // !__POINT_HPP__

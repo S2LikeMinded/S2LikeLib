@@ -1,6 +1,4 @@
-
-#ifndef __SHAPEFILE_HPP__
-#define __SHAPEFILE_HPP__
+#pragma once
 
 #include <S2LL/Core/Regions.hpp>
 #include <S2LL/Core/Utilities.hpp>
@@ -309,5 +307,3 @@ namespace S2LM
 		};
 	}
 }
-
-#endif // !__SHAPEFILE_HPP__

@@ -1,6 +1,4 @@
-
-#ifndef __REGION_HPP__
-#define __REGION_HPP__
+#pragma once
 
 #include <S2LL/Core/Coordinates.hpp>
 
@@ -31,4 +29,3 @@ namespace S2LM
 	};
 }
 
-#endif // !__REGION_HPP__
