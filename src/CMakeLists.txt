@@ -1,9 +1,7 @@
-add_library(S2LL STATIC
-	S2LL/Core/E2.cpp
-	S2LL/Core/Ellipsoid.cpp
-	S2LL/Core/Polygon.cpp
-	S2LL/Parser/Shapefile.cpp
-)
+add_library(S2LL STATIC)
+
+add_subdirectory(S2LL/Core)
+add_subdirectory(S2LL/Parser)
 
 target_include_directories(S2LL PUBLIC
 	$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>

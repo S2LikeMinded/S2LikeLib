@@ -1,0 +1,6 @@
+target_sources(S2LL PRIVATE
+	"${CMAKE_CURRENT_SOURCE_DIR}/E2.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/E3.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/Ellipsoid.cpp"
+	"${CMAKE_CURRENT_SOURCE_DIR}/Polygon.cpp"
+)

@@ -1,4 +1,7 @@
-add_executable(S2Edit main.cpp)
+add_executable(S2Edit
+	main.cpp
+	Commands.cpp
+)
 
 configure_file(S2EditConfig.hpp.in S2EditConfig.hpp)
 

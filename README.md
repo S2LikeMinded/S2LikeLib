@@ -1,7 +1,7 @@
 # S<sup>2</sup>LikeLib
 
 *Under active development.*
-A lightweight, efficient, and robust suite of C++17 tools and library for spheres and sphere-like surfaces.
+A lightweight, efficient, and robust suite of C++20 tools and library for spheres and sphere-like surfaces.
 
 
 ## Dependencies

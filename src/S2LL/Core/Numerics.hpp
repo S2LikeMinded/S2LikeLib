@@ -1,14 +1,19 @@
 #pragma once
 
 // References:
+// Dekker, T. J. (1971). A floating-point technique for extending the available precision. Numerische Mathematik, 18(3), 224-242. https://doi.org/10.1007/BF01397083
 // Shewchuk, J. R. (1997). Adaptive precision floating-point arithmetic and fast robust geometric predicates. Discrete & Computational Geometry, 18(3), 305-363. https://doi.org/10.1007/PL00009321
 // Thall, A. (2006). Extended-precision floating-point numbers for GPU computation. ACM SIGGRAPH 2006 Research Posters, 52-es. https://doi.org/10.1145/1179622.1179682
 // Lu, M., He, B., Luo, Q., Ailamaki, A., & Boncz, P. A. (2010). Supporting extended precision on graphics processors. DaMoN '10, 1869389.1869392. https://doi.org/10.1145/1869389.1869392
 
 #include <array>
+#include <cassert>
+#include <cfenv>
 #include <cmath>
+#include <limits>
 #include <type_traits>
 #include <utility>
+#include <S2LL/Core/Utilities.hpp>
 
 namespace S2LL
 {
@@ -28,16 +33,128 @@ namespace S2LL
 		{
 			return hi + lo;
 		}
+
+		// Double-double equality if and only if both components are equal
+		friend constexpr bool operator==(const Double& a, const Double& b) noexcept
+		{
+			return a.hi == b.hi && a.lo == b.lo;
+		}
+
+		// Double-double strictly-less-than ordering comparison
+		friend constexpr bool operator<(const Double& a, const Double& b) noexcept
+		{
+			return a.hi < b.hi || (a.hi == b.hi && a.lo < b.lo);
+		}
+
+		// Double-double strictly-greater-than ordering comparison
+		friend constexpr bool operator>(const Double& a, const Double& b) noexcept
+		{
+			return a.hi > b.hi || (a.hi == b.hi && a.lo > b.lo);
+		}
+
+		// Double-double less-than-or-equal ordering comparison
+		friend constexpr bool operator<=(const Double& a, const Double& b) noexcept
+		{
+			return a.hi < b.hi || (a.hi == b.hi && a.lo <= b.lo);
+		}
+
+		// Double-double greater-than-or-equal ordering comparison
+		friend constexpr bool operator>=(const Double& a, const Double& b) noexcept
+		{
+			return a.hi > b.hi || (a.hi == b.hi && a.lo >= b.lo);
+		}
+
+		// Double-double inequality if and only if some component is different
+		friend constexpr bool operator!=(const Double& a, const Double& b) noexcept
+		{
+			return a.hi != b.hi || a.lo != b.lo;
+		}
+
+		// Checks if either component is NaN
+		inline bool isnan() const noexcept
+		{
+			return std::isnan(hi) || std::isnan(lo);
+		}
+
+		// Checks if either component is infinite
+		inline bool isinf() const noexcept
+		{
+			return std::isinf(hi) || std::isinf(lo);
+		}
+
+		// Checks if the high component is negative
+		inline bool isneg() const noexcept
+		{
+			return hi < 0.0;
+		}
+
+		// Checks if both components are zero
+		inline bool iszero() const noexcept
+		{
+			return hi == 0.0 && lo == 0.0;
+		}
+
+		// Quick-Two-Sum algorithm (Shewchuk 1997 / Thall 2006)
+		// Prerequisite: |a| >= |b|
+		static constexpr Double quickTwoSum(double a, double b) noexcept
+		{
+			assert((a >= 0.0 ? a : -a) >= (b >= 0.0 ? b : -b));
+			double s = a + b;
+			double e = b - (s - a);
+			return Double::make(s, e);
+		}
+
+		// Two-Sum algorithm (Thall 2006)
+		static constexpr Double twoSum(double a, double b) noexcept
+		{
+			double s = a + b;
+			double v = s - a;
+			double e = (a - (s - v)) + (b - v);
+			return Double::make(s, e);
+		}
+
+		// Quiet NaN representation
+		static const Double NaN;
+
+		// Zero representation
+		static const Double Zero;
+
+		// One representation
+		static const Double One;
+
+		// Pi representation
+		static const Double Pi;
+
+		// 1 degree, expressed in radians
+		static const Double Degree;
+
+		// 1 minute, expressed in radians
+		static const Double Minute;
+
+		// 1 second, expressed in radians
+		static const Double Second;
 	};
 
-	// Compile-time POD verification
-	static_assert(std::is_pod_v<Double>, "Double must be a POD type.");
-	static_assert(std::is_standard_layout_v<Double>, "Double must have standard layout.");
-	static_assert(std::is_trivially_copyable_v<Double>, "Double must be trivially copyable.");
+	inline const Double Double::NaN{
+		std::numeric_limits<double>::quiet_NaN(),
+		std::numeric_limits<double>::quiet_NaN()
+	};
+
+	inline const Double Double::Zero{ 0.0, 0.0 };
+
+	inline const Double Double::One{ 1.0, 0.0 };
+
+	inline const Double Double::Pi{
+		std::numbers::pi,
+		1.2246467991473532e-16
+	};
+
+	// Compile-time POD & layout verification
+	S2LL_ASSERT_POD(Double);
 
 	// Lift helper to convert double to Double or pass-through Double
 	template <typename T>
-	constexpr decltype(auto) Lift(const T& x) noexcept
+	constexpr Double Lift(const T& x) noexcept
 	{
 		if constexpr (std::is_same_v<std::decay_t<T>, double>)
 		{
@@ -52,12 +169,8 @@ namespace S2LL
 	// Double-double addition
 	inline Double add(const Double& a, const Double& b)
 	{
-		double s = a.hi + b.hi;
-		double a_virt = s - b.hi;
-		double b_virt = s - a_virt;
-		double a_err = a.hi - a_virt;
-		double b_err = b.hi - b_virt;
-		return Double::make(s, (a_err + b_err) + a.lo + b.lo);
+		Double s = Double::twoSum(a.hi, b.hi);
+		return Double::make(s.hi, s.lo + a.lo + b.lo);
 	}
 
 	// Double-double subtraction
@@ -69,6 +182,15 @@ namespace S2LL
 		return Double::make(d, (d_lo - b.lo) + a.lo);
 	}
 
+	// Double-double multiplication
+	inline Double mul(const Double& a, const Double& b)
+	{
+		double p_hi = a.hi * b.hi;
+		double p_lo = std::fma(a.hi, b.hi, -p_hi);
+		p_lo += a.hi * b.lo + a.lo * b.hi;
+		return Double::quickTwoSum(p_hi, p_lo);
+	}
+
 	// Double-double division
 	inline Double div(const Double& a, const Double& b)
 	{
@@ -76,28 +198,117 @@ namespace S2LL
 		double p_hi = q_hi * b.hi;
 		double p_lo = std::fma(q_hi, b.hi, -p_hi);
 		double q_lo = (((a.hi - p_hi) - p_lo) + a.lo - q_hi * b.lo) / b.hi;
-		return Double::make(q_hi, q_lo);
+		return Double::quickTwoSum(q_hi, q_lo);
 	}
 
 	// Generic overloads lifting double parameters to Double
-	template <typename A, typename B,
-		typename = std::enable_if_t<std::is_same_v<std::decay_t<A>, double> || std::is_same_v<std::decay_t<B>, double>>>
-	inline Double add(const A& a, const B& b)
-	{
-		return add(Lift(a), Lift(b));
+#define S2LL_LIFT_BINOP(op) \
+	template <typename A, typename B, \
+		typename = std::enable_if_t<std::is_same_v<std::decay_t<A>, double> || std::is_same_v<std::decay_t<B>, double>>> \
+	inline Double op(const A& a, const B& b) \
+	{ \
+		return ::S2LL::op(static_cast<Double>(Lift(a)), static_cast<Double>(Lift(b))); \
 	}
 
-	template <typename A, typename B,
-		typename = std::enable_if_t<std::is_same_v<std::decay_t<A>, double> || std::is_same_v<std::decay_t<B>, double>>>
-	inline Double sub(const A& a, const B& b)
+	S2LL_LIFT_BINOP(add)
+	S2LL_LIFT_BINOP(sub)
+	S2LL_LIFT_BINOP(mul)
+	S2LL_LIFT_BINOP(div)
+#undef S2LL_LIFT_BINOP
+
+	inline const Double Double::Degree = div(Double::Pi, 180.0);
+	inline const Double Double::Minute = div(Double::Pi, 10800.0);
+	inline const Double Double::Second = div(Double::Pi, 648000.0);
+
+	// Quadrant snapping for Double
+	inline Double snap_quadrant(double x) noexcept
 	{
-		return sub(Lift(a), Lift(b));
+		double hp = 0.5 * std::numbers::pi;
+		int64_t k = static_cast<int64_t>(std::round(x / hp));
+		if (x == static_cast<double>(k) * hp)
+		{
+			return mul(0.5 * k, Double::Pi);
+		}
+		return Double::make(x, 0.0);
 	}
 
-	template <typename A, typename B,
-		typename = std::enable_if_t<std::is_same_v<std::decay_t<A>, double> || std::is_same_v<std::decay_t<B>, double>>>
-	inline Double div(const A& a, const B& b)
+	// Double-double square (not square root!)
+	inline Double sq(const Double& a)
 	{
-		return div(Lift(a), Lift(b));
+		double p_hi = a.hi * a.hi;
+		double p_lo = std::fma(a.hi, a.hi, -p_hi);
+		p_lo += 2.0 * a.hi * a.lo;
+		return Double::quickTwoSum(p_hi, p_lo);
+	}
+
+	// Double-double square root
+	inline Double sqrt(const Double& a)
+	{
+		if (a.isnan())
+		{
+			return Double::NaN;
+		}
+		if (a.isneg())
+		{
+			std::feraiseexcept(FE_INVALID);
+			return Double::NaN;
+		}
+		if (a.iszero() || a.isinf())
+		{
+			return a;
+		}
+
+		double xn = 1.0 / std::sqrt(a.hi);
+		double yn = a.hi * xn;
+		Double ynsq = sq(Double::make(yn));
+		double d = sub(a, ynsq).hi;
+		Double p = mul(0.5 * xn, d);
+		return add(Double::make(yn), p);
+	}
+
+	// High-precision simultaneous double-double sine and cosine
+	inline std::pair<Double, Double> sin_and_cos(const Double& a)
+	{
+		if (a.isnan())
+		{
+			return std::make_pair(Double::NaN, Double::NaN);
+		}
+
+		double s = std::sin(a.hi);
+		double c = std::cos(a.hi);
+
+		// First-order Taylor series correction using a.lo
+		Double sin_a = add(Double::make(s), mul(a.lo, c));
+		Double cos_a = sub(Double::make(c), mul(a.lo, s));
+
+		return std::make_pair(sin_a, cos_a);
+	}
+
+#define S2LL_LIFT_UNOP(op) \
+	template <typename T, typename = std::enable_if_t<std::is_same_v<std::decay_t<T>, double>>> \
+	inline Double op(const T& x) \
+	{ \
+		return ::S2LL::op(static_cast<Double>(Lift(x))); \
+	}
+
+	S2LL_LIFT_UNOP(sq)
+	S2LL_LIFT_UNOP(sqrt)
+#undef S2LL_LIFT_UNOP
+
+	inline std::pair<Double, Double> sin_and_cos(double x)
+	{
+		return sin_and_cos(snap_quadrant(x));
+	}
+
+	namespace Literals
+	{
+		inline Double operator"" _deg(long double d) { return mul(static_cast<double>(d), Double::Degree); }
+		inline Double operator"" _deg(unsigned long long d) { return mul(static_cast<double>(d), Double::Degree); }
+
+		inline Double operator"" _min(long double m) { return mul(static_cast<double>(m), Double::Minute); }
+		inline Double operator"" _min(unsigned long long m) { return mul(static_cast<double>(m), Double::Minute); }
+
+		inline Double operator"" _sec(long double s) { return mul(static_cast<double>(s), Double::Second); }
+		inline Double operator"" _sec(unsigned long long s) { return mul(static_cast<double>(s), Double::Second); }
 	}
 }
