@@ -19,6 +19,33 @@ TEST_CASE("E3 coordinates", "[core][coordinates]") {
 		REQUIRE(c.y == 0.0);
 		REQUIRE(c.z == 0.0);
 	}
+
+	SECTION("Magnitude calculation using Double") {
+		S2LL::E3 v1{ 1.0, 1.0, 1.0 };
+		REQUIRE(v1.mag() == std::sqrt(3.0));
+
+		S2LL::E3 v2{ -2.0, -1.0, -2.0 };
+		REQUIRE(v2.mag() == 3.0);
+
+		S2LL::E3 v3{ 3.0, 4.0, 12.0 };
+		REQUIRE(v3.mag() == 13.0);
+	}
+
+	SECTION("In-place normalization using Double") {
+		S2LL::E3 v1{ 3.0, 0.0, 4.0 };
+		v1.normalize();
+		REQUIRE(v1.x == 0.6);
+		REQUIRE(v1.y == 0.0);
+		REQUIRE(v1.z == 0.8);
+		REQUIRE(v1.mag() == 1.0);
+
+		S2LL::E3 v2{ 0.0, 0.0, 0.0 };
+		v2.normalize();
+		REQUIRE(v2.isnan());
+		REQUIRE(std::isnan(v2.x));
+		REQUIRE(std::isnan(v2.y));
+		REQUIRE(std::isnan(v2.z));
+	}
 }
 
 #include <numbers>

@@ -1,6 +1,6 @@
 # Intermediate directories
 bin/
-build/
+build*/
 doc/
 include/
 lib/
@@ -42,4 +42,6 @@ lib/
 *.app
 
 # Visual Studio Solution Settings folder
-.vs
+.vs/*
+!.vs/launch.vs.json
+!.vs/tasks.vs.json

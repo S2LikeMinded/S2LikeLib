@@ -11,6 +11,7 @@ FetchContent_MakeAvailable(Catch2)
 # Create unit test executable
 add_executable(S2LL_Tests
 	Core/TestCoordinates.cpp
+	Core/TestNumerics.cpp
 	Core/TestPolygons.cpp
 	Core/TestSurfaces.cpp
 	Parser/TestShapefile.cpp)
@@ -18,6 +19,10 @@ add_executable(S2LL_Tests
 target_link_libraries(S2LL_Tests PRIVATE
 	S2LL
 	Catch2::Catch2WithMain
+)
+
+target_include_directories(S2LL_Tests PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 # Register with CTest / Visual Studio Test Explorer

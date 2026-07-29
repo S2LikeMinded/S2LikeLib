@@ -11,6 +11,7 @@
 #include <cfenv>
 #include <cmath>
 #include <limits>
+#include <numbers>
 #include <type_traits>
 #include <utility>
 #include <S2LL/Core/Utilities.hpp>
@@ -68,6 +69,12 @@ namespace S2LL
 		friend constexpr bool operator!=(const Double& a, const Double& b) noexcept
 		{
 			return a.hi != b.hi || a.lo != b.lo;
+		}
+
+		// Unary negation operator
+		constexpr Double operator-() const noexcept
+		{
+			return Double::make(-hi, -lo);
 		}
 
 		// Checks if either component is NaN
@@ -152,17 +159,17 @@ namespace S2LL
 	// Compile-time POD & layout verification
 	S2LL_ASSERT_POD(Double);
 
-	// Lift helper to convert double to Double or pass-through Double
+	// Lift helper to convert scalar or Double to Double
 	template <typename T>
 	constexpr Double Lift(const T& x) noexcept
 	{
-		if constexpr (std::is_same_v<std::decay_t<T>, double>)
+		if constexpr (std::is_same_v<std::decay_t<T>, Double>)
 		{
-			return Double::make(x, 0.0);
+			return x;
 		}
 		else
 		{
-			return x;
+			return Double::make(static_cast<double>(x), 0.0);
 		}
 	}
 
@@ -201,7 +208,7 @@ namespace S2LL
 		return Double::quickTwoSum(q_hi, q_lo);
 	}
 
-	// Generic overloads lifting double parameters to Double
+	// Generic function overloads lifting double parameters to Double
 #define S2LL_LIFT_BINOP(op) \
 	template <typename A, typename B, \
 		typename = std::enable_if_t<std::is_same_v<std::decay_t<A>, double> || std::is_same_v<std::decay_t<B>, double>>> \
@@ -215,6 +222,24 @@ namespace S2LL
 	S2LL_LIFT_BINOP(mul)
 	S2LL_LIFT_BINOP(div)
 #undef S2LL_LIFT_BINOP
+
+	// Binary arithmetic operators (+, -, *, /) for S2LL::Double and scalars
+	inline Double operator+(const Double& a, const Double& b) { return add(a, b); }
+	inline Double operator-(const Double& a, const Double& b) { return sub(a, b); }
+	inline Double operator*(const Double& a, const Double& b) { return mul(a, b); }
+	inline Double operator/(const Double& a, const Double& b) { return div(a, b); }
+
+#define S2LL_LIFT_BINOP_OPERATOR(op_symbol, func_name) \
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>> \
+	inline Double operator op_symbol(const Double& a, const T& b) { return func_name(a, Lift(b)); } \
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>> \
+	inline Double operator op_symbol(const T& a, const Double& b) { return func_name(Lift(a), b); }
+
+	S2LL_LIFT_BINOP_OPERATOR(+, add)
+	S2LL_LIFT_BINOP_OPERATOR(-, sub)
+	S2LL_LIFT_BINOP_OPERATOR(*, mul)
+	S2LL_LIFT_BINOP_OPERATOR(/, div)
+#undef S2LL_LIFT_BINOP_OPERATOR
 
 	inline const Double Double::Degree = div(Double::Pi, 180.0);
 	inline const Double Double::Minute = div(Double::Pi, 10800.0);
@@ -302,13 +327,30 @@ namespace S2LL
 
 	namespace Literals
 	{
-		inline Double operator"" _deg(long double d) { return mul(static_cast<double>(d), Double::Degree); }
-		inline Double operator"" _deg(unsigned long long d) { return mul(static_cast<double>(d), Double::Degree); }
+		// S2LL::Double extended-precision literals
+		inline Double operator"" _Pi(long double p) { return mul(static_cast<double>(p), Double::Pi); }
+		inline Double operator"" _Pi(unsigned long long p) { return mul(static_cast<double>(p), Double::Pi); }
 
-		inline Double operator"" _min(long double m) { return mul(static_cast<double>(m), Double::Minute); }
-		inline Double operator"" _min(unsigned long long m) { return mul(static_cast<double>(m), Double::Minute); }
+		inline Double operator"" _Deg(long double d) { return mul(static_cast<double>(d), Double::Degree); }
+		inline Double operator"" _Deg(unsigned long long d) { return mul(static_cast<double>(d), Double::Degree); }
 
-		inline Double operator"" _sec(long double s) { return mul(static_cast<double>(s), Double::Second); }
-		inline Double operator"" _sec(unsigned long long s) { return mul(static_cast<double>(s), Double::Second); }
+		inline Double operator"" _Min(long double m) { return mul(static_cast<double>(m), Double::Minute); }
+		inline Double operator"" _Min(unsigned long long m) { return mul(static_cast<double>(m), Double::Minute); }
+
+		inline Double operator"" _Sec(long double s) { return mul(static_cast<double>(s), Double::Second); }
+		inline Double operator"" _Sec(unsigned long long s) { return mul(static_cast<double>(s), Double::Second); }
+
+		// Built-in double literals
+		inline double operator"" _pi(long double p) { return static_cast<double>(p) * std::numbers::pi; }
+		inline double operator"" _pi(unsigned long long p) { return static_cast<double>(p) * std::numbers::pi; }
+
+		inline double operator"" _deg(long double d) { return static_cast<double>(d) * (std::numbers::pi / 180.0); }
+		inline double operator"" _deg(unsigned long long d) { return static_cast<double>(d) * (std::numbers::pi / 180.0); }
+
+		inline double operator"" _min(long double m) { return static_cast<double>(m) * (std::numbers::pi / 10800.0); }
+		inline double operator"" _min(unsigned long long m) { return static_cast<double>(m) * (std::numbers::pi / 10800.0); }
+
+		inline double operator"" _sec(long double s) { return static_cast<double>(s) * (std::numbers::pi / 648000.0); }
+		inline double operator"" _sec(unsigned long long s) { return static_cast<double>(s) * (std::numbers::pi / 648000.0); }
 	}
 }

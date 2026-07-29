@@ -30,7 +30,7 @@ TEST_CASE("Ellipsoids", "[core][surface]") {
 		REQUIRE(e3_s2.y == 0.0);
 		REQUIRE(e3_s2.z == 0.0);
 
-		s2 = { static_cast<double>(90_deg), 0.0 }; // Equator
+		s2 = { 90_deg, 0.0 }; // Equator
 		e3_s2 = e.to_E3(s2);
 		REQUIRE(e3_s2.x == 100.0);
 		REQUIRE(e3_s2.y == 0.0);
@@ -42,7 +42,7 @@ TEST_CASE("Ellipsoids", "[core][surface]") {
 		REQUIRE(e3_s2.y == 0.0);
 		REQUIRE(e3_s2.z == -300.0);
 
-		s2 = { static_cast<double>(180_deg), 0.0 }; // South Pole (precision test)
+		s2 = { 180_deg, 0.0 }; // South Pole (precision test)
 		e3_s2 = e.to_E3(s2);
 		REQUIRE(e3_s2.x == 0.0);
 		REQUIRE(e3_s2.y == 0.0);
