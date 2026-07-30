@@ -45,3 +45,12 @@ lib/
 .vs/*
 !.vs/launch.vs.json
 !.vs/tasks.vs.json
+
+# Dear ImGui settings
+imgui.ini
+
+# Compilation database
+compile_commands.json
+
+# Tooling and language server caches
+.cache/

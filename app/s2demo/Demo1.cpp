@@ -1,4 +1,6 @@
+#include "S2DemoConfig.hpp"
 #include <raylib.h>
+#include <raymath.h>
 #include <rlgl.h>
 #include <rlImGui.h>
 #include <extras/IconsFontAwesome6.h>
@@ -59,11 +61,41 @@ namespace S2Demo
 
 		// Configure resizable Raylib window
 		SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-		InitWindow(1024, 1024, "S2Demo - PiSP Paper");
+		InitWindow(800, 640, "S2Demo - PiSP Paper");
 		SetTargetFPS(60);
 
 		// Initialize rlImGui
 		rlImGuiSetup(true);
+
+		// Load GLSL shader for smooth per-pixel shading from standalone files
+		const std::string vs_path = std::string(S2DEMO_SHADER_DIR) + "/smooth_ellipsoid.vs";
+		const std::string fs_path = std::string(S2DEMO_SHADER_DIR) + "/smooth_ellipsoid.fs";
+		Shader smooth_shader = LoadShader(vs_path.c_str(), fs_path.c_str());
+		int center_loc = GetShaderLocation(smooth_shader, "uCenter");
+		int axes_loc = GetShaderLocation(smooth_shader, "uSemiAxes");
+		int is_sphere_loc = GetShaderLocation(smooth_shader, "uIsSphere");
+		int light_dir_loc = GetShaderLocation(smooth_shader, "uLightDir");
+		int view_pos_loc = GetShaderLocation(smooth_shader, "uViewPos");
+		int model_loc = GetShaderLocation(smooth_shader, "uModel");
+
+		float center_val[3] = { 0.0f, 0.0f, 0.0f };
+		float axes_val[3] = {
+			static_cast<float>(s.major()),
+			static_cast<float>(s.median()),
+			static_cast<float>(s.minor())
+		};
+		int is_sphere_val = s.is_sphere() ? 1 : 0;
+		// Light coming from +z direction in world space
+		float light_dir_val[3] = { 0.0f, 0.0f, 1.0f };
+
+		// Model matrix aligning sphere poles with Z-axis in World Space
+		Matrix model_matrix = MatrixRotateX(90.0f * DEG2RAD);
+
+		SetShaderValue(smooth_shader, center_loc, center_val, SHADER_UNIFORM_VEC3);
+		SetShaderValue(smooth_shader, axes_loc, axes_val, SHADER_UNIFORM_VEC3);
+		SetShaderValue(smooth_shader, is_sphere_loc, &is_sphere_val, SHADER_UNIFORM_INT);
+		SetShaderValue(smooth_shader, light_dir_loc, light_dir_val, SHADER_UNIFORM_VEC3);
+		SetShaderValueMatrix(smooth_shader, model_loc, model_matrix);
 
 		// Setup 3D Camera positioned from direction v looking at origin
 		double dist2cam = 12.0;
@@ -165,10 +197,19 @@ namespace S2Demo
 			switch (sphere_model)
 			{
 			case 1:
+			{
+				float view_pos_val[3] = { cam.position.x, cam.position.y, cam.position.z };
+				SetShaderValue(smooth_shader, view_pos_loc, view_pos_val, SHADER_UNIFORM_VEC3);
+				BeginShaderMode(smooth_shader);
 				DrawSphereEx(origin, radius, 64, 64, LIGHTGRAY);
+				EndShaderMode();
 				break;
+			}
 			case 2:
+				rlPushMatrix();
+				rlRotatef(90.0f, 1.0f, 0.0f, 0.0f);
 				DrawSphereWires(origin, radius, 24, 24, RAYWHITE);
+				rlPopMatrix();
 				break;
 			}
 
@@ -279,8 +320,10 @@ namespace S2Demo
 			{
 				bool pushed_color;
 
-				if (Button(ICON_FA_ROTATE " Reset View"))
+				if (Button(ICON_FA_ROTATE " Reset"))
 				{
+					sphere_model = 1;
+					show_chord = false;
 					cam_pitch = std::asin(v.z);
 					cam_yaw = std::atan2(v.y, v.x);
 					view_needs_update = true;
@@ -319,10 +362,11 @@ namespace S2Demo
 			}
 			End();
 
-			Begin("S2Demo Controls");
+			SetNextWindowPos(ImVec2(10.0f, GetFrameHeight() + 48.0f), ImGuiCond_FirstUseEver);
+			Begin("S2Demo Controls", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 			TextFormatted("Sphere Radius: {}", s.major());
 			Separator();
-			TextUnformatted("Vertices of spherical 4-gon:");
+			TextUnformatted("Vertices of G = [A,B,C,D]:");
 			TextFormatted("  A: ({}, {}, {})", A.x, A.y, A.z);
 			TextFormatted("  B: ({}, {}, {})", B.x, B.y, B.z);
 			TextFormatted("  C: ({}, {}, {})", C.x, C.y, C.z);
@@ -334,7 +378,7 @@ namespace S2Demo
 				static_cast<double>(cam.position.z) / dist2cam
 			};
 			TextUnformatted("Query point:");
-			TextFormatted("  Q: ({}, {}, {})", Q.x, Q.y, Q.z);
+			TextFormatted("  Q: ({:.3f}, {:.3f}, {:.3f})", Q.x, Q.y, Q.z);
 			Separator();
 			TextUnformatted("View Direction:");
 			TextFormatted("  v: ({:.3f}, {:.3f}, {:.3f})", v_curr.x, v_curr.y, v_curr.z);
@@ -346,6 +390,7 @@ namespace S2Demo
 		}
 
 		rlImGuiShutdown();
+		UnloadShader(smooth_shader);
 		CloseWindow();
 
 		ost << "Demo 1 exited. Returned to CLI.\n";

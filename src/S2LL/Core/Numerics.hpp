@@ -23,86 +23,86 @@ namespace S2LL
 		double hi;
 		double lo;
 
-		// Convert from double using static factory pattern
+		/// Convert from double using static factory pattern
 		static constexpr Double make(double hi, double lo = 0.0) noexcept
 		{
 			return Double{ hi, lo };
 		}
 
-		// Conversion operator to double
+		/// Conversion operator to double
 		explicit constexpr operator double() const noexcept
 		{
 			return hi + lo;
 		}
 
-		// Double-double equality if and only if both components are equal
+		/// Double-double equality if and only if both components are equal
 		friend constexpr bool operator==(const Double& a, const Double& b) noexcept
 		{
 			return a.hi == b.hi && a.lo == b.lo;
 		}
 
-		// Double-double strictly-less-than ordering comparison
+		/// Double-double strictly-less-than ordering comparison
 		friend constexpr bool operator<(const Double& a, const Double& b) noexcept
 		{
 			return a.hi < b.hi || (a.hi == b.hi && a.lo < b.lo);
 		}
 
-		// Double-double strictly-greater-than ordering comparison
+		/// Double-double strictly-greater-than ordering comparison
 		friend constexpr bool operator>(const Double& a, const Double& b) noexcept
 		{
 			return a.hi > b.hi || (a.hi == b.hi && a.lo > b.lo);
 		}
 
-		// Double-double less-than-or-equal ordering comparison
+		/// Double-double less-than-or-equal ordering comparison
 		friend constexpr bool operator<=(const Double& a, const Double& b) noexcept
 		{
 			return a.hi < b.hi || (a.hi == b.hi && a.lo <= b.lo);
 		}
 
-		// Double-double greater-than-or-equal ordering comparison
+		/// Double-double greater-than-or-equal ordering comparison
 		friend constexpr bool operator>=(const Double& a, const Double& b) noexcept
 		{
 			return a.hi > b.hi || (a.hi == b.hi && a.lo >= b.lo);
 		}
 
-		// Double-double inequality if and only if some component is different
+		/// Double-double inequality if and only if some component is different
 		friend constexpr bool operator!=(const Double& a, const Double& b) noexcept
 		{
 			return a.hi != b.hi || a.lo != b.lo;
 		}
 
-		// Unary negation operator
+		/// Unary negation operator
 		constexpr Double operator-() const noexcept
 		{
 			return Double::make(-hi, -lo);
 		}
 
-		// Checks if either component is NaN
+		/// Checks if either component is NaN
 		inline bool isnan() const noexcept
 		{
 			return std::isnan(hi) || std::isnan(lo);
 		}
 
-		// Checks if either component is infinite
+		/// Checks if either component is infinite
 		inline bool isinf() const noexcept
 		{
 			return std::isinf(hi) || std::isinf(lo);
 		}
 
-		// Checks if the high component is negative
+		/// Checks if the high component is negative
 		inline bool isneg() const noexcept
 		{
 			return hi < 0.0;
 		}
 
-		// Checks if both components are zero
+		/// Checks if both components are zero
 		inline bool iszero() const noexcept
 		{
 			return hi == 0.0 && lo == 0.0;
 		}
 
-		// Quick-Two-Sum algorithm (Shewchuk 1997 / Thall 2006)
-		// Prerequisite: |a| >= |b|
+		/// \brief Quick-Two-Sum algorithm (Shewchuk 1997 / Thall 2006)
+		/// \details Prerequisite: \f$|a| \ge |b|\f$
 		static constexpr Double quickTwoSum(double a, double b) noexcept
 		{
 			assert((a >= 0.0 ? a : -a) >= (b >= 0.0 ? b : -b));
@@ -111,7 +111,7 @@ namespace S2LL
 			return Double::make(s, e);
 		}
 
-		// Two-Sum algorithm (Thall 2006)
+		/// Two-Sum algorithm (Thall 2006)
 		static constexpr Double twoSum(double a, double b) noexcept
 		{
 			double s = a + b;
@@ -120,25 +120,25 @@ namespace S2LL
 			return Double::make(s, e);
 		}
 
-		// Quiet NaN representation
+		/// Quiet NaN representation
 		static const Double NaN;
 
-		// Zero representation
+		/// Zero representation
 		static const Double Zero;
 
-		// One representation
+		/// One representation
 		static const Double One;
 
-		// Pi representation
+		/// Pi representation
 		static const Double Pi;
 
-		// 1 degree, expressed in radians
+		/// 1 degree, expressed in radians
 		static const Double Degree;
 
-		// 1 minute, expressed in radians
+		/// 1 minute, expressed in radians
 		static const Double Minute;
 
-		// 1 second, expressed in radians
+		/// 1 second, expressed in radians
 		static const Double Second;
 	};
 
@@ -156,10 +156,10 @@ namespace S2LL
 		1.2246467991473532e-16
 	};
 
-	// Compile-time POD & layout verification
+	/// Compile-time POD & layout verification
 	S2LL_ASSERT_POD(Double);
 
-	// Lift helper to convert scalar or Double to Double
+	/// Lift helper to convert scalar or Double to Double
 	template <typename T>
 	constexpr Double Lift(const T& x) noexcept
 	{
@@ -173,14 +173,14 @@ namespace S2LL
 		}
 	}
 
-	// Double-double addition
+	/// Double-double addition
 	inline Double add(const Double& a, const Double& b)
 	{
 		Double s = Double::twoSum(a.hi, b.hi);
 		return Double::make(s.hi, s.lo + a.lo + b.lo);
 	}
 
-	// Double-double subtraction
+	/// Double-double subtraction
 	inline Double sub(const Double& a, const Double& b)
 	{
 		double d = a.hi - b.hi;
@@ -189,7 +189,7 @@ namespace S2LL
 		return Double::make(d, (d_lo - b.lo) + a.lo);
 	}
 
-	// Double-double multiplication
+	/// Double-double multiplication
 	inline Double mul(const Double& a, const Double& b)
 	{
 		double p_hi = a.hi * b.hi;
@@ -198,7 +198,7 @@ namespace S2LL
 		return Double::quickTwoSum(p_hi, p_lo);
 	}
 
-	// Double-double division
+	/// Double-double division
 	inline Double div(const Double& a, const Double& b)
 	{
 		double q_hi = a.hi / b.hi;
@@ -208,7 +208,7 @@ namespace S2LL
 		return Double::quickTwoSum(q_hi, q_lo);
 	}
 
-	// Generic function overloads lifting double parameters to Double
+	/// Generic function overloads lifting double parameters to Double
 #define S2LL_LIFT_BINOP(op) \
 	template <typename A, typename B, \
 		typename = std::enable_if_t<std::is_same_v<std::decay_t<A>, double> || std::is_same_v<std::decay_t<B>, double>>> \
@@ -223,7 +223,7 @@ namespace S2LL
 	S2LL_LIFT_BINOP(div)
 #undef S2LL_LIFT_BINOP
 
-	// Binary arithmetic operators (+, -, *, /) for S2LL::Double and scalars
+	/// Binary arithmetic operators (+, -, *, /) for S2LL::Double and scalars
 	inline Double operator+(const Double& a, const Double& b) { return add(a, b); }
 	inline Double operator-(const Double& a, const Double& b) { return sub(a, b); }
 	inline Double operator*(const Double& a, const Double& b) { return mul(a, b); }
@@ -245,7 +245,7 @@ namespace S2LL
 	inline const Double Double::Minute = div(Double::Pi, 10800.0);
 	inline const Double Double::Second = div(Double::Pi, 648000.0);
 
-	// Quadrant snapping for Double
+	/// Quadrant snapping for Double
 	inline Double snap_quadrant(double x) noexcept
 	{
 		double hp = 0.5 * std::numbers::pi;
@@ -257,7 +257,7 @@ namespace S2LL
 		return Double::make(x, 0.0);
 	}
 
-	// Double-double square (not square root!)
+	/// Double-double square (not square root!)
 	inline Double sq(const Double& a)
 	{
 		double p_hi = a.hi * a.hi;
@@ -266,7 +266,7 @@ namespace S2LL
 		return Double::quickTwoSum(p_hi, p_lo);
 	}
 
-	// Double-double square root
+	/// Double-double square root
 	inline Double sqrt(const Double& a)
 	{
 		if (a.isnan())
@@ -291,7 +291,7 @@ namespace S2LL
 		return add(Double::make(yn), p);
 	}
 
-	// High-precision simultaneous double-double sine and cosine
+	/// High-precision simultaneous double-double sine and cosine
 	inline std::pair<Double, Double> sin_and_cos(const Double& a)
 	{
 		if (a.isnan())
@@ -327,30 +327,30 @@ namespace S2LL
 
 	namespace Literals
 	{
-		// S2LL::Double extended-precision literals
-		inline Double operator"" _Pi(long double p) { return mul(static_cast<double>(p), Double::Pi); }
-		inline Double operator"" _Pi(unsigned long long p) { return mul(static_cast<double>(p), Double::Pi); }
+		/// S2LL::Double extended-precision literals
+		inline Double operator""_Pi(long double p) { return mul(static_cast<double>(p), Double::Pi); }
+		inline Double operator""_Pi(unsigned long long p) { return mul(static_cast<double>(p), Double::Pi); }
 
-		inline Double operator"" _Deg(long double d) { return mul(static_cast<double>(d), Double::Degree); }
-		inline Double operator"" _Deg(unsigned long long d) { return mul(static_cast<double>(d), Double::Degree); }
+		inline Double operator""_Deg(long double d) { return mul(static_cast<double>(d), Double::Degree); }
+		inline Double operator""_Deg(unsigned long long d) { return mul(static_cast<double>(d), Double::Degree); }
 
-		inline Double operator"" _Min(long double m) { return mul(static_cast<double>(m), Double::Minute); }
-		inline Double operator"" _Min(unsigned long long m) { return mul(static_cast<double>(m), Double::Minute); }
+		inline Double operator""_Min(long double m) { return mul(static_cast<double>(m), Double::Minute); }
+		inline Double operator""_Min(unsigned long long m) { return mul(static_cast<double>(m), Double::Minute); }
 
-		inline Double operator"" _Sec(long double s) { return mul(static_cast<double>(s), Double::Second); }
-		inline Double operator"" _Sec(unsigned long long s) { return mul(static_cast<double>(s), Double::Second); }
+		inline Double operator""_Sec(long double s) { return mul(static_cast<double>(s), Double::Second); }
+		inline Double operator""_Sec(unsigned long long s) { return mul(static_cast<double>(s), Double::Second); }
 
-		// Built-in double literals
-		inline double operator"" _pi(long double p) { return static_cast<double>(p) * std::numbers::pi; }
-		inline double operator"" _pi(unsigned long long p) { return static_cast<double>(p) * std::numbers::pi; }
+		/// Built-in double literals
+		inline double operator""_pi(long double p) { return static_cast<double>(p) * std::numbers::pi; }
+		inline double operator""_pi(unsigned long long p) { return static_cast<double>(p) * std::numbers::pi; }
 
-		inline double operator"" _deg(long double d) { return static_cast<double>(d) * (std::numbers::pi / 180.0); }
-		inline double operator"" _deg(unsigned long long d) { return static_cast<double>(d) * (std::numbers::pi / 180.0); }
+		inline double operator""_deg(long double d) { return static_cast<double>(d) * (std::numbers::pi / 180.0); }
+		inline double operator""_deg(unsigned long long d) { return static_cast<double>(d) * (std::numbers::pi / 180.0); }
 
-		inline double operator"" _min(long double m) { return static_cast<double>(m) * (std::numbers::pi / 10800.0); }
-		inline double operator"" _min(unsigned long long m) { return static_cast<double>(m) * (std::numbers::pi / 10800.0); }
+		inline double operator""_min(long double m) { return static_cast<double>(m) * (std::numbers::pi / 10800.0); }
+		inline double operator""_min(unsigned long long m) { return static_cast<double>(m) * (std::numbers::pi / 10800.0); }
 
-		inline double operator"" _sec(long double s) { return static_cast<double>(s) * (std::numbers::pi / 648000.0); }
-		inline double operator"" _sec(unsigned long long s) { return static_cast<double>(s) * (std::numbers::pi / 648000.0); }
+		inline double operator""_sec(long double s) { return static_cast<double>(s) * (std::numbers::pi / 648000.0); }
+		inline double operator""_sec(unsigned long long s) { return static_cast<double>(s) * (std::numbers::pi / 648000.0); }
 	}
 }
