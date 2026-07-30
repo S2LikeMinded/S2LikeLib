@@ -70,9 +70,9 @@ Applications are implemented in individual folders under `./app` and compiled in
 
 An interactive tool to demonstrate the results of some peer-reviewed articles.
 
+- In the S<sup>2</sup>Edit shell, run demo 1 through `run 1` and list all demos using `list`.
+- In the terminal, run demo 1 through `S2Edit 1`.
+
 ## S<sup>2</sup>Edit
 
 An interactive CLI tool for inspecting, processing, and editing ellipsoidal and spherical geographic regions.
-
-- In the S<sup>2</sup>Edit shell, run demo 1 through `run 1` and list all demos using `list`
-- In the terminal, run demo 1 through `S2Edit 1`

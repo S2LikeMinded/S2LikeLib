@@ -1,6 +1,7 @@
 #include <raylib.h>
 #include <rlgl.h>
 #include <rlImGui.h>
+#include <extras/IconsFontAwesome6.h>
 #include <imgui.h>
 
 #include "Demos.hpp"
@@ -10,6 +11,7 @@
 
 #include <cmath>
 #include <algorithm>
+#include <format>
 
 #undef CloseWindow
 #undef ShowCursor
@@ -26,12 +28,19 @@
 
 using namespace S2LL;
 using namespace S2LL::Literals;
+using namespace ImGui;
 
 namespace S2Demo
 {
 	inline Vector3 to_Vector3(const E3& e) noexcept
 	{
 		return Vector3{ static_cast<float>(e.x), static_cast<float>(e.y), static_cast<float>(e.z) };
+	}
+
+	template <typename... Args>
+	inline void TextFormatted(std::format_string<Args...> fmt, Args&&... args)
+	{
+		TextUnformatted(std::format(fmt, std::forward<Args>(args)...).c_str());
 	}
 
 	void RunDemo1(std::ostream& ost, DemoContext& ctx)
@@ -65,9 +74,11 @@ namespace S2Demo
 		cam.fovy       = 45.0f;
 		cam.projection = CAMERA_PERSPECTIVE;
 
-		bool show_grid = false;
+		bool view_needs_update = true;
+		bool show_xy_plane = false;
 		bool show_axes = true;
-		int sphere_model = 0;
+		int sphere_model = 1;
+		bool show_chord = false;
 		int show_case = 0;
 		bool rotate_tool = true;
 		bool is_dragging_rotation = false;
@@ -89,11 +100,11 @@ namespace S2Demo
 			RayCollision collision = GetRayCollisionSphere(ray, origin, radius);
 			bool outside_sphere = !collision.hit;
 
-			if (rotate_tool && !ImGui::GetIO().WantCaptureMouse)
+			if (rotate_tool && !GetIO().WantCaptureMouse)
 			{
 				if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
 				{
-					if (outside_sphere)
+					if (outside_sphere || sphere_model == 0)
 					{
 						is_dragging_rotation = true;
 					}
@@ -110,8 +121,12 @@ namespace S2Demo
 				Vector2 delta = GetMouseDelta();
 				cam_yaw   -= static_cast<double>(delta.x) * 0.005;
 				cam_pitch += static_cast<double>(delta.y) * 0.005;
-				cam_pitch  = std::clamp(cam_pitch, -1.5, 1.5);
+				cam_pitch  = std::clamp(cam_pitch, -90_deg, 90_deg);
+				view_needs_update = true;
+			}
 
+			if (view_needs_update)
+			{
 				double cp = std::cos(cam_pitch);
 				double sp = std::sin(cam_pitch);
 				double cy = std::cos(cam_yaw);
@@ -119,6 +134,7 @@ namespace S2Demo
 
 				E3 cam_dir{ cp * cy, cp * sy, sp };
 				cam.position = to_Vector3(dist2cam * cam_dir);
+				view_needs_update = false;
 			}
 
 			UpdateCamera(&cam, CAMERA_CUSTOM);
@@ -129,7 +145,7 @@ namespace S2Demo
 			BeginMode3D(cam);
 
 			// Reference Equatorial Grid (XY-plane, Z=0)
-			if (show_grid)
+			if (show_xy_plane)
 			{
 				rlPushMatrix();
 				rlRotatef(90.0f, 1.0f, 0.0f, 0.0f);
@@ -148,13 +164,11 @@ namespace S2Demo
 			// Render sphere s
 			switch (sphere_model)
 			{
-			case 0:
-				DrawSphereEx(origin, radius, 64, 64, RAYWHITE);
-				break;
 			case 1:
-				DrawSphereWires(origin, radius, 24, 24, RAYWHITE);
+				DrawSphereEx(origin, radius, 64, 64, LIGHTGRAY);
 				break;
-			default:
+			case 2:
+				DrawSphereWires(origin, radius, 24, 24, RAYWHITE);
 				break;
 			}
 
@@ -173,14 +187,17 @@ namespace S2Demo
 			DrawSphere(pQ, vertex_size, BLUE);
 
 			// Draw 4-gon edges: A -> B -> C -> D -> A
-			DrawLine3D(pA, pB, GOLD);
-			DrawLine3D(pB, pC, GOLD);
-			DrawLine3D(pC, pD, GOLD);
-			DrawLine3D(pD, pA, GOLD);
+			if (show_chord)
+			{
+				DrawLine3D(pA, pB, GOLD);
+				DrawLine3D(pB, pC, GOLD);
+				DrawLine3D(pC, pD, GOLD);
+				DrawLine3D(pD, pA, GOLD);
+			}
 
 			// Draw direction vector v ray
 			// Vector3 dir_v = to_Vector3(v * (radius + 2.0f));
-			// DrawLine3D(Vector3{ 0, 0, 0 }, dir_v, ORANGE);
+			// DrawLine3D(origin, dir_v, ORANGE);
 
 			EndMode3D();
 
@@ -199,94 +216,129 @@ namespace S2Demo
 			// Setup ImGui overlay & main menu bar
 			rlImGuiBegin();
 
-			if (ImGui::BeginMainMenuBar())
+			if (BeginMainMenuBar())
 			{
-				if (ImGui::BeginMenu("File"))
+				if (BeginMenu("File"))
 				{
-					if (ImGui::MenuItem("Exit Demo", "ESC"))
+					if (MenuItem("Exit Demo", "ESC"))
 					{
 						exit_requested = true;
 					}
-					ImGui::EndMenu();
+					EndMenu();
 				}
-				if (ImGui::BeginMenu("View"))
+				if (BeginMenu("View"))
 				{
-					if (ImGui::MenuItem("Reset View"))
+					if (MenuItem("Reset View"))
 					{
 						cam_pitch = std::asin(v.z);
 						cam_yaw = std::atan2(v.y, v.x);
 						cam.position = to_Vector3(dist2cam * v);
 						cam.target = origin;
 						cam.up = Vector3{ 0.0f, 0.0f, 1.0f };
+						view_needs_update = true;
 					}
-					ImGui::Separator();
-					ImGui::MenuItem("Rotate View", nullptr, &rotate_tool);
-					ImGui::MenuItem("Equatorial Grid (xy-plane)", nullptr, &show_grid);
-					ImGui::MenuItem("Coordinate Axes", nullptr, &show_axes);
-					ImGui::EndMenu();
+					Separator();
+					MenuItem("Rotate View", nullptr, &rotate_tool);
+					MenuItem("Coordinate Axes", nullptr, &show_axes);
+					EndMenu();
 				}
-				if (ImGui::BeginMenu("Display"))
+				if (BeginMenu("Display"))
 				{
-					if (ImGui::BeginMenu("Sphere"))
+					if (BeginMenu("Sphere"))
 					{
-						ImGui::RadioButton("Solid", &sphere_model, 0);
-						ImGui::RadioButton("Wireframe", &sphere_model, 1);
-						ImGui::EndMenu();
+						RadioButton("None", &sphere_model, 0);
+						RadioButton("Solid", &sphere_model, 1);
+						RadioButton("Wireframe", &sphere_model, 2);
+						EndMenu();
 					}
-					ImGui::EndMenu();
+					if (BeginMenu("Edges"))
+					{
+						MenuItem("Show Chord", nullptr, &show_chord);
+						EndMenu();
+					}
+					if (BeginMenu("Planes"))
+					{
+						MenuItem("xy-plane", nullptr, &show_xy_plane);
+						EndMenu();
+					}
+					EndMenu();
 				}
-				if (ImGui::BeginMenu("Demos"))
+				if (BeginMenu("Demos"))
 				{
-					ImGui::RadioButton("1: Spherical 4-gon (Fig. 1a-c)", &show_case, 0);
-					ImGui::RadioButton("2: Spherical 4-gon (Fig. 1d-f)", &show_case, 1);
-					ImGui::EndMenu();
+					RadioButton("1a: Spherical 4-gon (Fig. 1a-c)", &show_case, 0);
+					RadioButton("1b: Spherical 4-gon (Fig. 1d-f)", &show_case, 1);
+					EndMenu();
 				}
-				ImGui::EndMainMenuBar();
+				EndMainMenuBar();
 			}
 
 			// Top Toolbar Panel (Rotate Icon Tool)
-			ImGui::SetNextWindowPos(ImVec2(0, ImGui::GetFrameHeight()));
-			ImGui::SetNextWindowSize(ImVec2(ImGui::GetIO().DisplaySize.x, 38.0f));
-			ImGui::Begin("##Toolbar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings);
+			SetNextWindowPos(ImVec2(0, GetFrameHeight()));
+			SetNextWindowSize(ImVec2(GetIO().DisplaySize.x, 38.0f));
+			Begin("##Toolbar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoSavedSettings);
 			{
-				bool pushed_color = rotate_tool;
-				if (pushed_color)
+				bool pushed_color;
+
+				if (Button(ICON_FA_ROTATE " Reset View"))
 				{
-					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.26f, 0.59f, 0.98f, 0.80f));
+					cam_pitch = std::asin(v.z);
+					cam_yaw = std::atan2(v.y, v.x);
+					view_needs_update = true;
 				}
 
-				if (ImGui::Button((char*)u8"\u21BB Rotate View"))
+				SameLine();
+				pushed_color = rotate_tool;
+				if (pushed_color)
+				{
+					PushStyleColor(ImGuiCol_Button, ImVec4(0.26f, 0.59f, 0.98f, 0.80f));
+				}
+				if (Button(ICON_FA_CAMERA_ROTATE " Rotate View"))
 				{
 					rotate_tool = !rotate_tool;
 				}
-
 				if (pushed_color)
 				{
-					ImGui::PopStyleColor();
+					PopStyleColor();
+				}
+
+				SameLine();
+				if (Button(ICON_FA_LOCATION_CROSSHAIRS " View from Q"))
+				{
+					auto coords = s.to_S2(Q).to_LL();
+					cam_pitch = coords.lat;
+					cam_yaw = coords.lon;
+					view_needs_update = true;
+				}
+
+				SameLine();
+				if (Button(ICON_FA_DRAW_POLYGON " Chords Only"))
+				{
+					sphere_model = 0;
+					show_chord = true;
 				}
 			}
-			ImGui::End();
+			End();
 
-			ImGui::Begin("S2Demo Controls");
-			ImGui::Text("Sphere Radius: %.1f", s.major());
-			ImGui::Separator();
-			ImGui::Text("Vertices of spherical 4-gon:");
-			ImGui::Text("  A: (%.1f, %.1f, %.1f)", A.x, A.y, A.z);
-			ImGui::Text("  B: (%.1f, %.1f, %.1f)", B.x, B.y, B.z);
-			ImGui::Text("  C: (%.1f, %.1f, %.1f)", C.x, C.y, C.z);
-			ImGui::Text("  D: (%.1f, %.1f, %.1f)", D.x, D.y, D.z);
-			ImGui::Separator();
+			Begin("S2Demo Controls");
+			TextFormatted("Sphere Radius: {}", s.major());
+			Separator();
+			TextUnformatted("Vertices of spherical 4-gon:");
+			TextFormatted("  A: ({}, {}, {})", A.x, A.y, A.z);
+			TextFormatted("  B: ({}, {}, {})", B.x, B.y, B.z);
+			TextFormatted("  C: ({}, {}, {})", C.x, C.y, C.z);
+			TextFormatted("  D: ({}, {}, {})", D.x, D.y, D.z);
+			Separator();
 			E3 v_curr{
 				static_cast<double>(cam.position.x) / dist2cam,
 				static_cast<double>(cam.position.y) / dist2cam,
 				static_cast<double>(cam.position.z) / dist2cam
 			};
-			ImGui::Text("Query point:");
-			ImGui::Text("  Q: (%.1f, %.1f, %.1f)", Q.x, Q.y, Q.z);
-			ImGui::Separator();
-			ImGui::Text("View Direction:");
-			ImGui::Text("  v: (%.3f, %.3f, %.3f)", v_curr.x, v_curr.y, v_curr.z);
-			ImGui::End();
+			TextUnformatted("Query point:");
+			TextFormatted("  Q: ({}, {}, {})", Q.x, Q.y, Q.z);
+			Separator();
+			TextUnformatted("View Direction:");
+			TextFormatted("  v: ({:.3f}, {:.3f}, {:.3f})", v_curr.x, v_curr.y, v_curr.z);
+			End();
 
 			rlImGuiEnd();
 

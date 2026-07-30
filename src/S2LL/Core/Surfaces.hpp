@@ -53,6 +53,15 @@ namespace S2LL
 			};
 		}
 
+		// Converts 3D Cartesian coordinates (x, y, z) into spherical coordinates
+		inline S2 to_S2(const E3& e3) const noexcept
+		{
+			return S2{
+				std::acos(static_cast<double>(e3.z / c)),
+				std::atan2(static_cast<double>(e3.y), static_cast<double>(e3.x))
+			};
+		}
+
 		// Converts latitude-longitude coordinates (lat, lon) into 3D Cartesian space
 		inline E3 to_E3(const LL& ll) const noexcept
 		{
