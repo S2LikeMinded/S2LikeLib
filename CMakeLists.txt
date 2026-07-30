@@ -19,9 +19,11 @@ endif()
 
 find_package(cli CONFIG QUIET)
 if(NOT cli_FOUND)
+	set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
 	FetchContent_Declare(cli
 		GIT_REPOSITORY https://github.com/daniele77/cli.git
 		GIT_TAG 80541c47bc4c7a6baa205136ca558860cb5e61af # v2.2.0
+		SYSTEM
 	)
 	FetchContent_MakeAvailable(cli)
 endif()

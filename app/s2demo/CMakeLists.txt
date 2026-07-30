@@ -24,6 +24,9 @@ FetchContent_Declare(
 # Disable Raylib examples to keep Visual Studio Startup Items list clean
 set(BUILD_EXAMPLES OFF CACHE BOOL "Build raylib examples" FORCE)
 
+# Disable audio module
+set(SUPPORT_MODULE_RAUDIO OFF CACHE BOOL "Disable raylib audio module" FORCE)
+
 FetchContent_MakeAvailable(raylib imgui rlImGui)
 
 add_executable(S2Demo

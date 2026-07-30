@@ -4,6 +4,7 @@
 #include <limits>
 #include <numbers>
 #include <ostream>
+#include <S2LL/Core/Curves.hpp>
 #include <S2LL/Core/Numerics.hpp>
 #include <S2LL/Core/Utilities.hpp>
 
@@ -17,6 +18,9 @@ namespace S2LL
 	// Plain-old-data type for 2D Cartesian coordinates
 	struct E2
 	{
+		template <size_t N = 0>
+		using Loop = S2LL::Loop<E2, N>;
+
 		// 2D Cartesian coordinates
 		double x, y;
 
@@ -31,6 +35,9 @@ namespace S2LL
 	struct E3
 	{
 	public:
+		template <size_t N = 0>
+		using Loop = S2LL::Loop<E3, N>;
+
 		// 3D Cartesian coordinates
 		double x, y, z;
 
@@ -66,12 +73,60 @@ namespace S2LL
 			return *this;
 		}
 
+		// Returns a normalized copy of this vector using extended-precision S2LL::Double
+		inline E3 normalized() const
+		{
+			E3 temp = *this;
+			temp.normalize();
+			return temp;
+		}
+
+		// Calculates dot product using extended-precision S2LL::Double
+		inline double dot(const E3& other) const noexcept
+		{
+			Double d = mul(x, other.x) + mul(y, other.y) + mul(z, other.z);
+			return static_cast<double>(d);
+		}
+
+		// Calculates cross product using extended-precision S2LL::Double
+		inline E3 cross(const E3& other) const noexcept
+		{
+			Double cx = mul(y, other.z) - mul(z, other.y);
+			Double cy = mul(z, other.x) - mul(x, other.z);
+			Double cz = mul(x, other.y) - mul(y, other.x);
+			return E3{
+				static_cast<double>(cx),
+				static_cast<double>(cy),
+				static_cast<double>(cz)
+			};
+		}
+
 		friend std::ostream& operator<<(std::ostream& ost, const E3& e3)
 		{
 			ost << e3.x << ' ' << e3.y << ' ' << e3.z;
 			return ost;
 		}
 	};
+
+	// Adds two 3D vectors using extended-precision S2LL::Double
+	inline E3 operator+(const E3& a, const E3& b) noexcept
+	{
+		return E3{
+			static_cast<double>(add(a.x, b.x)),
+			static_cast<double>(add(a.y, b.y)),
+			static_cast<double>(add(a.z, b.z))
+		};
+	}
+
+	// Subtracts two 3D vectors using extended-precision S2LL::Double
+	inline E3 operator-(const E3& a, const E3& b) noexcept
+	{
+		return E3{
+			static_cast<double>(sub(a.x, b.x)),
+			static_cast<double>(sub(a.y, b.y)),
+			static_cast<double>(sub(a.z, b.z))
+		};
+	}
 
 	// Multiplies a 3D vector by a scalar using extended-precision S2LL::Double
 	inline E3 operator*(const E3& v, double scalar)
@@ -89,10 +144,25 @@ namespace S2LL
 		return v * scalar;
 	}
 
+	// Calculates dot product of two 3D vectors using extended-precision S2LL::Double
+	inline double dot(const E3& a, const E3& b) noexcept
+	{
+		return a.dot(b);
+	}
+
+	// Calculates cross product of two 3D vectors using extended-precision S2LL::Double
+	inline E3 cross(const E3& a, const E3& b) noexcept
+	{
+		return a.cross(b);
+	}
+
 	// Plain-old-data type for spherical coordinates on spheres
 	struct S2
 	{
 	public:
+		template <size_t N = 0>
+		using Loop = S2LL::Loop<S2, N>;
+
 		// Polar angle, in radians
 		double p;
 
@@ -113,6 +183,9 @@ namespace S2LL
 	struct LL
 	{
 	public:
+		template <size_t N = 0>
+		using Loop = S2LL::Loop<LL, N>;
+
 		// Some latitude, in radians
 		double lat;
 
@@ -144,4 +217,5 @@ namespace S2LL
 	S2LL_ASSERT_POD(E3);
 	S2LL_ASSERT_POD(S2);
 	S2LL_ASSERT_POD(LL);
+	S2LL_ASSERT_POD(E3::Loop<4>);
 }
