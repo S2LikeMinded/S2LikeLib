@@ -9,6 +9,7 @@
 #include "Demos.hpp"
 #include "DemoSignalGuard.hpp"
 
+#include <S2LL/Core/Regions.hpp>
 #include <S2LL/Core/Surfaces.hpp>
 
 #include <cmath>
@@ -75,11 +76,11 @@ namespace S2Demo
 
 		// Sphere of radius 3
 		const Ellipsoid s(3);
-		// Vertices of a spherical 4-gon
-		const E3::Loop<4> G{ {0, 0, 3}, {3, 0, 0}, {2, 2, 1}, {0, 3, 0} };
-		const auto nv = G.size();
+		// Great-elliptic 4-gon on the sphere
+		const GEP<4> poly{ {0, 0, 3}, {3, 0, 0}, {2, 2, 1}, {0, 3, 0} };
+		const auto nv = poly.size();
 		// Query points for Demos 1a & 1b: Q lies on sphere R=3 and on the same great circle
-		// as G's vertices[1] (3,0,0) and vertices[2] (2,2,1), at angle theta = 5*pi/12 (75 deg).
+		// as poly's vertices[1] (3,0,0) and vertices[2] (2,2,1), at angle theta = 5*pi/12 (75 deg).
 		auto [sin_a, cos_a] = sin_and_cos(75_Deg);
 		Double sqrt5 = sqrt(Lift(5));
 		Double qx = 3 * cos_a;
@@ -260,7 +261,7 @@ namespace S2Demo
 			std::array<Vector3, nv> pG;
 			for (size_t i = 0; i < nv; ++i)
 			{
-				pG[i] = to_Vector3(G.vertices[i]);
+				pG[i] = to_Vector3(poly[i]);
 			}
 			Vector3 pQ = to_Vector3(Q);
 
@@ -315,7 +316,7 @@ namespace S2Demo
 				for (size_t i = 0; i < nv; ++i)
 				{
 					float radius_lifted = static_cast<float>(radius * 1.002f);
-					auto arc_pts = generate_great_circle_arc(G.vertices[i], G.vertices[(i + 1) % nv], radius_lifted, 32);
+					auto arc_pts = generate_great_circle_arc(poly[i], poly[(i + 1) % nv], radius_lifted, 32);
 					for (size_t k = 0; k + 1 < arc_pts.size(); ++k)
 					{
 						Vector3 p0 = arc_pts[k];
@@ -342,10 +343,11 @@ namespace S2Demo
 			{
 				const int axes_label_font_size = 20;
 				const int axes_label_font_spacing = 0;
+
 				Vector2 pX = GetWorldToScreen(Vector3{ 4.0f, 0.0f, 0.0f }, cam);
 				Vector2 pY = GetWorldToScreen(Vector3{ 0.0f, 4.0f, 0.0f }, cam);
 				Vector2 pZ = GetWorldToScreen(Vector3{ 0.0f, 0.0f, 4.0f }, cam);
-				
+
 				Vector2 label_size = MeasureTextEx(GetFontDefault(),
 					"x", axes_label_font_size, axes_label_font_spacing);
 				pX.x -= 0.5f * label_size.x;
@@ -524,12 +526,12 @@ namespace S2Demo
 			TextUnformatted("Ellipsoid");
 			TextFormatted("  Spherical radius: {}", s.major());
 			Separator();
-			TextFormatted("Spherical {}-gon G", nv);
+			TextFormatted("Spherical {}-gon", nv);
 			for (size_t i = 0; i < nv; ++i)
 			{
 				const char* prefix = (hovered_idx == static_cast<int>(i)) ? ICON_FA_CHEVRON_RIGHT : " ";
 				TextFormatted("{} {}: ({}, {}, {})", prefix, "ABCD"[i],
-					G.vertices[i].x, G.vertices[i].y, G.vertices[i].z);
+					poly[i].x, poly[i].y, poly[i].z);
 			}
 			Separator();
 			E3 v_curr{
@@ -551,7 +553,7 @@ namespace S2Demo
 			if (hovered_idx >= 0 && static_cast<size_t>(hovered_idx) < nv)
 			{
 				BeginTooltip();
-				TextFormatted("{}({}, {}, {})", "ABCD"[hovered_idx], G.vertices[hovered_idx].x, G.vertices[hovered_idx].y, G.vertices[hovered_idx].z);
+				TextFormatted("{}({}, {}, {})", "ABCD"[hovered_idx], poly[hovered_idx].x, poly[hovered_idx].y, poly[hovered_idx].z);
 				EndTooltip();
 			}
 			else if (hovered_idx == static_cast<int>(nv))

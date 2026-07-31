@@ -242,18 +242,18 @@ void Shapefile::parse(const std::filesystem::path& path)
 		}
 		parts[numParts] = numPoints;
 
-		Compound<Polygon> cpoly;
+		Compound<PlanePolygon<>> cpoly;
 		cpoly.polygons.reserve(numParts);
 		for (int i = 0; i < numParts; ++i)
 		{
-			Polygon poly;
+			PlanePolygon<> poly;
 			// (p. 9, J-7855) The rings are closed.
-			poly.vertices.reserve((parts[i+1] - parts[i]));
+			poly.boundary.vertices.reserve((parts[i+1] - parts[i]));
 			for (int j = parts[i]; j < parts[i+1]; ++j)
 			{
 				vertex.x = read_double_small_endian(iss, buffer);
 				vertex.y = read_double_small_endian(iss, buffer);
-				poly.vertices.push_back(vertex);
+				poly.boundary.vertices.push_back(vertex);
 			}
 			cpoly.polygons.push_back(poly);
 		}

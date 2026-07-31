@@ -303,7 +303,7 @@ namespace S2LL
 			PRJReader prj;
 
 
-			std::vector<S2LL::Compound<S2LL::Polygon>> regions;
+			std::vector<Compound<PlanePolygon<>>> regions;
 		};
 	}
 }

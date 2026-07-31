@@ -7,8 +7,6 @@
 #include <iomanip>
 #include <locale>
 
-using S2LL::Ellipsoid;
-
 namespace S2Edit
 {
 	void ParseInput(EditContext& ctx)
@@ -35,7 +33,7 @@ namespace S2Edit
 		if (!ctx.isShapefile)
 			throw std::runtime_error(ctx.inputExtension + " not supported");
 
-		ctx.shapefilePtr = std::make_unique<S2LL::Parser::Shapefile>();
+		ctx.shapefilePtr = std::make_unique<Parser::Shapefile>();
 		ctx.shapefilePtr->parse(input);
 		ctx.cs = ctx.shapefilePtr->regions;
 	}
@@ -164,7 +162,7 @@ namespace S2Edit
 				ost << "Converting...\n";
 				ctx.cgs.clear();
 
-				Ellipsoid ellipsoid = S2LL::UnitSphere;
+				Ellipsoid ellipsoid = UnitSphere;
 				double unit = 1.0;
 
 				if (ctx.isShapefile)
@@ -183,7 +181,7 @@ namespace S2Edit
 					}
 				}
 
-				S2LL::S2 spc;
+				S2 spc;
 				ctx.cgs.reserve(ctx.cs.size());
 				for (const auto& c : ctx.cs)
 				{
@@ -193,12 +191,12 @@ namespace S2Edit
 					for (const auto& p : c.polygons)
 					{
 						auto& g = cg.polygons.emplace_back();
-						g.vertices.reserve(p.vertices.size());
-						for (const auto& v : p.vertices)
+						g.boundary.vertices.reserve(p.boundary.vertices.size());
+						for (const auto& v : p.boundary.vertices)
 						{
 							spc.p = v.x * unit;
 							spc.a = v.y * unit;
-							g.vertices.push_back(ellipsoid.to_E3(spc));
+							g.boundary.vertices.push_back(ellipsoid.to_E3(spc));
 						}
 					}
 				}
@@ -229,7 +227,7 @@ namespace S2Edit
 					for (const auto& p : c.polygons)
 					{
 						ofs << "----\n";
-						for (const auto& v : p.vertices)
+						for (const auto& v : p.boundary.vertices)
 						{
 							ofs << v << "\n";
 						}
@@ -296,9 +294,9 @@ namespace S2Edit
 						ioFlags = ost.flags(std::ios::right);
 						ioPrecision = ost.precision(std::numeric_limits<double>::digits10);
 					}
-					for (size_t k = 0; k < poly.vertices.size(); ++k)
+					for (size_t k = 0; k < poly.boundary.vertices.size(); ++k)
 					{
-						const auto& vertex = poly.vertices[k];
+						const auto& vertex = poly.boundary.vertices[k];
 						ost << "    " << vertex << "\n";
 					}
 					{

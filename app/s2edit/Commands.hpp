@@ -11,6 +11,8 @@
 #include <string>
 #include <vector>
 
+using namespace S2LL;
+
 namespace S2Edit
 {
 	// Application state context
@@ -20,9 +22,9 @@ namespace S2Edit
 		std::string inputExtension;
 		bool asShapefile = false;
 		bool isShapefile = false;
-		std::unique_ptr<S2LL::Parser::Shapefile> shapefilePtr = std::make_unique<S2LL::Parser::Shapefile>();
-		std::vector<S2LL::Compound<S2LL::Polygon>> cs;
-		std::vector<S2LL::Compound<S2LL::GLPolygon>> cgs;
+		std::unique_ptr<Parser::Shapefile> shapefilePtr = std::make_unique<Parser::Shapefile>();
+		std::vector<Compound<PlanePolygon<>>> cs;
+		std::vector<Compound<GP<>>> cgs;
 	};
 
 	// Parses input path into EditContext

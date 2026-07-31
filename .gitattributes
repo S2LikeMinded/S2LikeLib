@@ -1,0 +1,17 @@
+* text=auto
+
+# Binary files: never normalize or convert line endings
+*.bmp binary
+*.dbf binary
+*.dll binary
+*.exe binary
+*.gif binary
+*.ico binary
+*.jpeg binary
+*.jpg binary
+*.lib binary
+*.obj binary
+*.pdb binary
+*.png binary
+*.shp binary
+*.shx binary
