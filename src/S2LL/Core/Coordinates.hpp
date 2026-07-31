@@ -8,6 +8,8 @@
 #include <S2LL/Core/Numerics.hpp>
 #include <S2LL/Core/Utilities.hpp>
 
+using namespace S2LL::Literals;
+
 namespace S2LL
 {
 	struct E2;
@@ -48,10 +50,16 @@ namespace S2LL
 		}
 
 		// Calculates vector magnitude using extended-precision S2LL::Double
-		inline double mag() const
+		inline Double Mag() const
 		{
 			Double sqsum = sq(x) + sq(y) + sq(z);
-			return static_cast<double>(sqrt(sqsum));
+			return sqrt(sqsum);
+		}
+
+		/// Calculates vector magnitude using extended-precision S2LL::Double
+		inline double mag() const
+		{
+			return static_cast<double>(Mag());
 		}
 
 		// Normalizes this 3D vector in-place using extended-precision S2LL::Double
@@ -100,6 +108,12 @@ namespace S2LL
 				static_cast<double>(cz)
 			};
 		}
+
+		/// Converts (x, y, z) into spherical/geocentric coordinates
+		S2 s2() const noexcept;
+
+		/// Converts (x, y, z) into latitude-longitude coordinates
+		LL ll() const noexcept;
 
 		friend std::ostream& operator<<(std::ostream& ost, const E3& e3)
 		{
@@ -156,7 +170,7 @@ namespace S2LL
 		return a.cross(b);
 	}
 
-	// Plain-old-data type for spherical coordinates on spheres
+	// Plain-old-data type for spherical/geocentric coordinates
 	struct S2
 	{
 	public:
@@ -170,7 +184,7 @@ namespace S2LL
 		double a;
 
 		// Converts spherical coordinates to latitude-longitude pair
-		LL to_LL() const noexcept;
+		LL ll() const noexcept;
 
 		friend std::ostream& operator<<(std::ostream& ost, const S2& s2)
 		{
@@ -193,7 +207,10 @@ namespace S2LL
 		double lon;
 
 		// Converts latitude-longitude pair to spherical coordinates
-		S2 to_S2() const noexcept;
+		S2 s2() const noexcept;
+
+		// Converts latitude-longitude pair to unit-sphere direction vector
+		E3 e3() const noexcept;
 
 		friend std::ostream& operator<<(std::ostream& ost, const LL& ll)
 		{
@@ -202,14 +219,40 @@ namespace S2LL
 		}
 	};
 
-	inline LL S2::to_LL() const noexcept
+	inline S2 E3::s2() const noexcept
 	{
-		return LL{ 0.5 * std::numbers::pi - p, a };
+		Double p = acos(div(Lift(z), Mag()));
+		Double a = atan2(Lift(y), Lift(x));
+		return S2 {
+			static_cast<double>(p),
+			static_cast<double>(a)
+		};
 	}
 
-	inline S2 LL::to_S2() const noexcept
+	inline LL E3::ll() const noexcept
 	{
-		return S2{ 0.5 * std::numbers::pi - lat, lon };
+		return s2().ll();
+	}
+
+	inline LL S2::ll() const noexcept
+	{
+		return LL{ 0.5_pi - p, a };
+	}
+
+	inline S2 LL::s2() const noexcept
+	{
+		return S2{ 0.5_pi - lat, lon };
+	}
+
+	inline E3 LL::e3() const noexcept
+	{
+		auto [sin_lat, cos_lat] = sin_and_cos(lat);
+		auto [sin_lon, cos_lon] = sin_and_cos(lon);
+		return E3{
+			static_cast<double>(mul(cos_lat, cos_lon)),
+			static_cast<double>(mul(cos_lat, sin_lon)),
+			static_cast<double>(sin_lat)
+		};
 	}
 
 	// Compile-time layout & copyability verification

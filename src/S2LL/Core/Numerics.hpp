@@ -129,6 +129,9 @@ namespace S2LL
 		/// One representation
 		static const Double One;
 
+		/// Negative one representation
+		static const Double NegOne;
+
 		/// Pi representation
 		static const Double Pi;
 
@@ -150,6 +153,8 @@ namespace S2LL
 	inline const Double Double::Zero{ 0.0, 0.0 };
 
 	inline const Double Double::One{ 1.0, 0.0 };
+
+	inline const Double Double::NegOne{ -1.0, 0.0 };
 
 	inline const Double Double::Pi{
 		std::numbers::pi,
@@ -221,6 +226,7 @@ namespace S2LL
 	S2LL_LIFT_BINOP(sub)
 	S2LL_LIFT_BINOP(mul)
 	S2LL_LIFT_BINOP(div)
+	S2LL_LIFT_BINOP(atan2)
 #undef S2LL_LIFT_BINOP
 
 	/// Binary arithmetic operators (+, -, *, /) for S2LL::Double and scalars
@@ -309,6 +315,53 @@ namespace S2LL
 		return std::make_pair(sin_a, cos_a);
 	}
 
+	/// Double-double inverse cosine (acos)
+	inline Double acos(const Double& a)
+	{
+		if (a.isnan())
+		{
+			return Double::NaN;
+		}
+		if (a > Double::One || a < Double::NegOne)
+		{
+			std::feraiseexcept(FE_INVALID);
+			return Double::NaN;
+		}
+
+		double y0 = std::acos(static_cast<double>(a));
+		double s = 1.0 - a.hi * a.hi;
+		if (s <= 0.0)
+		{
+			return Double::make(y0);
+		}
+
+		double dy = -a.lo / std::sqrt(s);
+		return add(Double::make(y0), Double::make(dy));
+	}
+
+	/// Double-double two-argument arctangent (atan2)
+	inline Double atan2(const Double& y, const Double& x)
+	{
+		if (y.isnan() || x.isnan())
+		{
+			return Double::NaN;
+		}
+		if (y == Double::Zero && x == Double::Zero)
+		{
+			return Double::Zero;
+		}
+
+		double y0 = std::atan2(static_cast<double>(y), static_cast<double>(x));
+		double r2 = x.hi * x.hi + y.hi * y.hi;
+		if (r2 == 0.0)
+		{
+			return Double::make(y0);
+		}
+
+		double dy = (x.hi * y.lo - y.hi * x.lo) / r2;
+		return add(Double::make(y0), Double::make(dy));
+	}
+
 #define S2LL_LIFT_UNOP(op) \
 	template <typename T, typename = std::enable_if_t<std::is_same_v<std::decay_t<T>, double>>> \
 	inline Double op(const T& x) \
@@ -318,6 +371,7 @@ namespace S2LL
 
 	S2LL_LIFT_UNOP(sq)
 	S2LL_LIFT_UNOP(sqrt)
+	S2LL_LIFT_UNOP(acos)
 #undef S2LL_LIFT_UNOP
 
 	inline std::pair<Double, Double> sin_and_cos(double x)

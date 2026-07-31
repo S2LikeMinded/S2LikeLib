@@ -62,8 +62,8 @@ An interactive tool to demonstrate the results of some peer-reviewed articles.
 | :---------------------------------------------: | :-----------------------------------------------: |
 | ![Spherical 4-gon Demo 1a](doc/img/PiSP-1a.jpg) | ![View from Q Demo 1a](doc/img/PiSP-1a-fromQ.jpg) |
 
-- In the S²Edit shell, run demo 1 through `run 1` and list all demos using `list`.
-- In the terminal, run demo 1 through `S2Edit 1`.
+- In the S²Demo shell, run demo 1 through `run 1` and list all demos using `list`.
+- In the terminal, run demo 1 through `S2Demo 1`.
 
 ## S²Edit
 

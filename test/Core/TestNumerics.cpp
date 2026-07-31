@@ -46,3 +46,20 @@ TEST_CASE("Catch2 StringMaker for Double", "[core][numerics]") {
 	REQUIRE(repr.find("Double{ hi:") != std::string::npos);
 	REQUIRE(repr.find("lo:") != std::string::npos);
 }
+
+TEST_CASE("Double Inverse Trigonometric Functions", "[core][numerics]") {
+	using namespace S2LL::Literals;
+
+	SECTION("S2LL::acos bounds and domain errors") {
+		REQUIRE(static_cast<double>(S2LL::acos(S2LL::Double::One)) == 0.0);
+		REQUIRE(static_cast<double>(S2LL::acos(S2LL::Double::NegOne)) == 1_pi);
+		REQUIRE(S2LL::acos(S2LL::Double::make(1.5)).isnan());
+		REQUIRE(S2LL::acos(S2LL::Double::make(-1.5)).isnan());
+	}
+
+	SECTION("S2LL::atan2 special values") {
+		REQUIRE(static_cast<double>(S2LL::atan2(S2LL::Double::Zero, S2LL::Double::Zero)) == 0.0);
+		REQUIRE(static_cast<double>(S2LL::atan2(S2LL::Double::One, S2LL::Double::Zero)) == 0.5_pi);
+		REQUIRE(static_cast<double>(S2LL::atan2(S2LL::Double::Zero, S2LL::Double::One)) == 0.0);
+	}
+}

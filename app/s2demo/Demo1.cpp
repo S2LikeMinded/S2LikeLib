@@ -106,12 +106,22 @@ namespace S2Demo
 		const std::string vs_path = std::string(S2DEMO_SHADER_DIR) + "/smooth_ellipsoid.vs";
 		const std::string fs_path = std::string(S2DEMO_SHADER_DIR) + "/smooth_ellipsoid.fs";
 		Shader smooth_shader = LoadShader(vs_path.c_str(), fs_path.c_str());
-		int center_loc = GetShaderLocation(smooth_shader, "uCenter");
-		int axes_loc = GetShaderLocation(smooth_shader, "uSemiAxes");
-		int is_sphere_loc = GetShaderLocation(smooth_shader, "uIsSphere");
-		int light_dir_loc = GetShaderLocation(smooth_shader, "uLightDir");
-		int view_pos_loc = GetShaderLocation(smooth_shader, "uViewPos");
-		int model_loc = GetShaderLocation(smooth_shader, "uModel");
+		struct ShaderLocations
+		{
+			int center;
+			int axes;
+			int is_sphere;
+			int light_dir;
+			int view_pos;
+			int model;
+		} locs{
+			GetShaderLocation(smooth_shader, "uCenter"),
+			GetShaderLocation(smooth_shader, "uSemiAxes"),
+			GetShaderLocation(smooth_shader, "uIsSphere"),
+			GetShaderLocation(smooth_shader, "uLightDir"),
+			GetShaderLocation(smooth_shader, "uViewPos"),
+			GetShaderLocation(smooth_shader, "uModel")
+		};
 
 		float center_val[3] = { 0.0f, 0.0f, 0.0f };
 		float axes_val[3] = {
@@ -126,11 +136,11 @@ namespace S2Demo
 		// Model matrix aligning sphere poles with Z-axis in World Space
 		Matrix model_matrix = MatrixRotateX(90.0f * DEG2RAD);
 
-		SetShaderValue(smooth_shader, center_loc, center_val, SHADER_UNIFORM_VEC3);
-		SetShaderValue(smooth_shader, axes_loc, axes_val, SHADER_UNIFORM_VEC3);
-		SetShaderValue(smooth_shader, is_sphere_loc, &is_sphere_val, SHADER_UNIFORM_INT);
-		SetShaderValue(smooth_shader, light_dir_loc, light_dir_val, SHADER_UNIFORM_VEC3);
-		SetShaderValueMatrix(smooth_shader, model_loc, model_matrix);
+		SetShaderValue(smooth_shader, locs.center, center_val, SHADER_UNIFORM_VEC3);
+		SetShaderValue(smooth_shader, locs.axes, axes_val, SHADER_UNIFORM_VEC3);
+		SetShaderValue(smooth_shader, locs.is_sphere, &is_sphere_val, SHADER_UNIFORM_INT);
+		SetShaderValue(smooth_shader, locs.light_dir, light_dir_val, SHADER_UNIFORM_VEC3);
+		SetShaderValueMatrix(smooth_shader, locs.model, model_matrix);
 
 		// Setup 3D Camera positioned from direction v looking at origin
 		double dist2cam = 12.0;
@@ -142,22 +152,26 @@ namespace S2Demo
 		cam.fovy       = orthographic ? 8.0f : 45.0f;
 		cam.projection = orthographic ? CAMERA_ORTHOGRAPHIC : CAMERA_PERSPECTIVE;
 
+		// Camera state
+		LL cam_angle = v.ll();
 		bool view_needs_update = true;
+
+		// View toggles
 		bool show_xy_plane = false;
 		bool show_axes = true;
-		int sphere_model = 1;
 		bool show_arc = true;
 		bool show_chord = true;
+		int sphere_model = 1;
 		int show_case = 0;
-		bool rotate_tool = true;
-		bool is_dragging_rotation = false;
-		double cam_yaw = std::atan2(v.y, v.x);
-		double cam_pitch = std::asin(v.z);
-		bool exit_requested = false;
 		double vertex_size = 0.05f;
 
-		ost << "3D Window Launched (Arbitrarily Resizable).\n";
-		ost << "Press ESC, close window, or Ctrl+C to return to CLI.\n";
+		// Interaction state
+		bool rotate_tool = true;
+		bool is_dragging_rotation = false;
+		bool exit_requested = false;
+
+		ost << "3D Window Launched (Arbitrarily Resizable).\n"
+			<< "Press ESC, close window, or Ctrl+C to return to CLI.\n";
 
 		Vector3 origin{ 0.0f, 0.0f, 0.0f };
 
@@ -165,6 +179,7 @@ namespace S2Demo
 		{
 			E3 Q = (show_case == 0) ? Q_1a : Q_1b;
 			float radius = static_cast<float>(s.major());
+
 			Vector2 mouse_pos = GetMousePosition();
 			Ray ray = GetScreenToWorldRay(mouse_pos, cam);
 			RayCollision collision = GetRayCollisionSphere(ray, origin, radius);
@@ -189,21 +204,17 @@ namespace S2Demo
 			if (is_dragging_rotation && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
 			{
 				Vector2 delta = GetMouseDelta();
-				cam_yaw   -= static_cast<double>(delta.x) * 0.005;
-				cam_pitch += static_cast<double>(delta.y) * 0.005;
-				cam_pitch  = std::clamp(cam_pitch, -90_deg, 90_deg);
+				cam_angle.lon -= static_cast<double>(delta.x) * 0.005;
+				cam_angle.lat += static_cast<double>(delta.y) * 0.005;
+				cam_angle.lat  = std::clamp(cam_angle.lat, -90_deg, 90_deg);
 				view_needs_update = true;
 			}
 
 			if (view_needs_update)
 			{
-				double cp = std::cos(cam_pitch);
-				double sp = std::sin(cam_pitch);
-				double cy = std::cos(cam_yaw);
-				double sy = std::sin(cam_yaw);
-
-				E3 cam_dir{ cp * cy, cp * sy, sp };
-				cam.position = to_Vector3(dist2cam * cam_dir);
+				cam.position = to_Vector3(dist2cam * cam_angle.e3());
+				// Up vector = latitude gradient, always perpendicular to view direction
+				cam.up = to_Vector3(LL{ cam_angle.lat + 0.5_pi, cam_angle.lon }.e3());
 				view_needs_update = false;
 			}
 
@@ -238,16 +249,10 @@ namespace S2Demo
 			{
 			case 1: { // Solid view
 				float view_pos_val[3] = { cam.position.x, cam.position.y, cam.position.z };
-				SetShaderValue(smooth_shader, view_pos_loc, view_pos_val, SHADER_UNIFORM_VEC3);
+				SetShaderValue(smooth_shader, locs.view_pos, view_pos_val, SHADER_UNIFORM_VEC3);
 				BeginShaderMode(smooth_shader);
 				DrawSphereEx(origin, radius, 64, 64, LIGHTGRAY);
 				EndShaderMode();
-			} break;
-			case 2: { // Wireframe view (switch poles to z-axis)
-				rlPushMatrix();
-				rlRotatef(90.0f, 1.0f, 0.0f, 0.0f);
-				DrawSphereWires(origin, radius, 24, 24, RAYWHITE);
-				rlPopMatrix();
 			} break;
 			}
 
@@ -309,7 +314,7 @@ namespace S2Demo
 			{
 				for (size_t i = 0; i < nv; ++i)
 				{
-					double radius_lifted = radius * 1.002f;
+					float radius_lifted = static_cast<float>(radius * 1.002f);
 					auto arc_pts = generate_great_circle_arc(G.vertices[i], G.vertices[(i + 1) % nv], radius_lifted, 32);
 					for (size_t k = 0; k + 1 < arc_pts.size(); ++k)
 					{
@@ -335,13 +340,24 @@ namespace S2Demo
 			// Draw x, y, z axis labels at tips when axes are enabled
 			if (show_axes)
 			{
+				const int axes_label_font_size = 20;
+				const int axes_label_font_spacing = 0;
 				Vector2 pX = GetWorldToScreen(Vector3{ 4.0f, 0.0f, 0.0f }, cam);
 				Vector2 pY = GetWorldToScreen(Vector3{ 0.0f, 4.0f, 0.0f }, cam);
 				Vector2 pZ = GetWorldToScreen(Vector3{ 0.0f, 0.0f, 4.0f }, cam);
+				
+				Vector2 label_size = MeasureTextEx(GetFontDefault(),
+					"x", axes_label_font_size, axes_label_font_spacing);
+				pX.x -= 0.5f * label_size.x;
+				pX.y -= 0.5f * label_size.y;
+				pY.x -= 0.5f * label_size.x;
+				pY.y -= 0.5f * label_size.y;
+				pZ.x -= 0.5f * label_size.x;
+				pZ.y -= 0.5f * label_size.y;
 
-				DrawText("x", static_cast<int>(pX.x), static_cast<int>(pX.y), 20, RED);
-				DrawText("y", static_cast<int>(pY.x), static_cast<int>(pY.y), 20, GREEN);
-				DrawText("z", static_cast<int>(pZ.x), static_cast<int>(pZ.y), 20, BLUE);
+				DrawText("x", static_cast<int>(pX.x), static_cast<int>(pX.y), axes_label_font_size, RED);
+				DrawText("y", static_cast<int>(pY.x), static_cast<int>(pY.y), axes_label_font_size, GREEN);
+				DrawText("z", static_cast<int>(pZ.x), static_cast<int>(pZ.y), axes_label_font_size, BLUE);
 			}
 
 			// Setup ImGui overlay & main menu bar
@@ -361,11 +377,7 @@ namespace S2Demo
 				{
 					if (MenuItem("Reset View"))
 					{
-						cam_pitch = std::asin(v.z);
-						cam_yaw = std::atan2(v.y, v.x);
-						cam.position = to_Vector3(dist2cam * v);
-						cam.target = origin;
-						cam.up = Vector3{ 0.0f, 0.0f, 1.0f };
+						cam_angle = v.ll();
 						view_needs_update = true;
 					}
 					Separator();
@@ -380,7 +392,6 @@ namespace S2Demo
 					{
 						RadioButton("None", &sphere_model, 0);
 						RadioButton("Solid", &sphere_model, 1);
-						RadioButton("Wireframe", &sphere_model, 2);
 						EndMenu();
 					}
 					if (BeginMenu("Edges"))
@@ -419,17 +430,15 @@ namespace S2Demo
 					show_arc = true;
 					show_chord = true;
 					orthographic = true;
-					cam_pitch = std::asin(v.z);
-					cam_yaw = std::atan2(v.y, v.x);
+					cam_angle = v.ll();
 					view_needs_update = true;
 				}
 
 				SameLine();
 				if (Button(ICON_FA_LOCATION_CROSSHAIRS " View from Q"))
 				{
-					auto coords = s.to_S2(Q).to_LL();
-					cam_pitch = coords.lat;
-					cam_yaw = coords.lon;
+					auto coords = Q.ll();
+					cam_angle = coords;
 					view_needs_update = true;
 				}
 
@@ -502,10 +511,9 @@ namespace S2Demo
 				{
 					ICON_FA_GLOBE " None " ICON_FA_GLOBE,
 					ICON_FA_GLOBE " Solid " ICON_FA_GLOBE,
-					ICON_FA_GLOBE " Wireframe " ICON_FA_GLOBE
 				};
 				PushItemWidth(120.0f);
-				SliderInt("##SphereModel", &sphere_model, 0, 2, model_labels[sphere_model]);
+				SliderInt("##SphereModel", &sphere_model, 0, 1, model_labels[sphere_model]);
 				PopItemWidth();
 			}
 			End();
@@ -532,11 +540,11 @@ namespace S2Demo
 			TextUnformatted("Query point");
 			{
 				const char* prefix = (hovered_idx == static_cast<int>(nv)) ? ICON_FA_CHEVRON_RIGHT : " ";
-				TextFormatted("{} Q: ({: .3f}, {: .3f}, {: .3f})", prefix, Q.x, Q.y, Q.z);
+				TextFormatted("{} Q: ({: .3f},{: .3f},{: .3f})", prefix, Q.x, Q.y, Q.z);
 			}
 			Separator();
 			TextUnformatted("Viewing From Direction");
-			TextFormatted("  v: ({: .3f}, {: .3f}, {: .3f})", v_curr.x, v_curr.y, v_curr.z);
+			TextFormatted("  v: ({: .3f},{: .3f},{: .3f})", v_curr.x, v_curr.y, v_curr.z);
 			End();
 
 			// Display hover tooltip inside active ImGui frame scope

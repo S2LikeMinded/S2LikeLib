@@ -53,8 +53,8 @@ namespace S2LL
 
 		/// Cyclic index resolution:
 		///   [0, n)  -> direct access (no division)
-		///   [n, +∞) -> i % n          (single mod, result already >= 0)
-		///   (-∞, 0) -> n - 1 - ((-i - 1) % n)  (single mod, avoids double-mod)
+		///   [n, +Inf) -> i % n          (single mod, result already >= 0)
+		///   (-Inf, 0) -> n - 1 - ((-i - 1) % n)  (single mod, avoids double-mod)
 		constexpr const V& operator[](ptrdiff_t i) const noexcept
 		{
 			const ptrdiff_t n = static_cast<ptrdiff_t>(vertices.size());

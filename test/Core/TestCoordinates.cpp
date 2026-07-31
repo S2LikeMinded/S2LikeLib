@@ -60,7 +60,7 @@ TEST_CASE("S2 coordinates", "[core][coordinates]") {
 
 	SECTION("Conversion to LL") {
 		S2LL::S2 s2{ 0.0, 1.25 };
-		S2LL::LL ll = s2.to_LL();
+		S2LL::LL ll = s2.ll();
 
 		REQUIRE(ll.lat == 0.5 * std::numbers::pi);
 		REQUIRE(ll.lon == s2.a);
@@ -77,7 +77,7 @@ TEST_CASE("LL coordinates", "[core][coordinates]") {
 
 	SECTION("Conversion to S2") {
 		S2LL::LL ll{ 0.0, 1.25 };
-		S2LL::S2 s2 = ll.to_S2();
+		S2LL::S2 s2 = ll.s2();
 
 		REQUIRE(s2.p == 0.5 * std::numbers::pi);
 		REQUIRE(s2.a == ll.lon);
