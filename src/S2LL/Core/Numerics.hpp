@@ -213,6 +213,29 @@ namespace S2LL
 		return Double::quickTwoSum(q_hi, q_lo);
 	}
 
+	/// Double-double two-argument arctangent (atan2)
+	inline Double atan2(const Double& y, const Double& x)
+	{
+		if (y.isnan() || x.isnan())
+		{
+			return Double::NaN;
+		}
+		if (y == Double::Zero && x == Double::Zero)
+		{
+			return Double::Zero;
+		}
+
+		double y0 = std::atan2(static_cast<double>(y), static_cast<double>(x));
+		double r2 = x.hi * x.hi + y.hi * y.hi;
+		if (r2 == 0.0)
+		{
+			return Double::make(y0);
+		}
+
+		double dy = (x.hi * y.lo - y.hi * x.lo) / r2;
+		return add(Double::make(y0), Double::make(dy));
+	}
+
 	/// Generic function overloads lifting double parameters to Double
 #define S2LL_LIFT_BINOP(op) \
 	template <typename A, typename B, \
@@ -336,29 +359,6 @@ namespace S2LL
 		}
 
 		double dy = -a.lo / std::sqrt(s);
-		return add(Double::make(y0), Double::make(dy));
-	}
-
-	/// Double-double two-argument arctangent (atan2)
-	inline Double atan2(const Double& y, const Double& x)
-	{
-		if (y.isnan() || x.isnan())
-		{
-			return Double::NaN;
-		}
-		if (y == Double::Zero && x == Double::Zero)
-		{
-			return Double::Zero;
-		}
-
-		double y0 = std::atan2(static_cast<double>(y), static_cast<double>(x));
-		double r2 = x.hi * x.hi + y.hi * y.hi;
-		if (r2 == 0.0)
-		{
-			return Double::make(y0);
-		}
-
-		double dy = (x.hi * y.lo - y.hi * x.lo) / r2;
 		return add(Double::make(y0), Double::make(dy));
 	}
 
