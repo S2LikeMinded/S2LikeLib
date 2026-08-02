@@ -122,4 +122,25 @@ TEST_CASE("Ellipsoids", "[core][surface]") {
 		const auto miss = M.intersect_ray({ 12.0, 2.0, 0.0 }, { -1.0, 0.0, 0.0 }, 1.0);
 		REQUIRE_FALSE(miss.has_value());
 	}
+
+	SECTION("BilinearForm ray range brackets the surface") {
+		// Unit sphere, ray along -x from (12, 0, 0): enters at t=11, exits at t=13
+		const S2LL::BilinearForm M{ 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0 };
+		const auto range = M.ray_range({ 12.0, 0.0, 0.0 }, { -1.0, 0.0, 0.0 }, 1.0);
+		REQUIRE(range.has_value());
+		REQUIRE(range->first == 11.0);
+		REQUIRE(range->second == 13.0);
+
+		// Ray along +z through the sheared sphere quadric (a,b,c) = (1,2,0.5)
+		const S2LL::LinearTransformation T(1.0, 2.0, 0.5);
+		const auto Ms = T.quadric(S2LL::UnitSphere);
+		const auto zrange = Ms.ray_range({ 0.0, 0.0, 3.0 }, { 0.0, 0.0, -1.0 }, 1.0);
+		REQUIRE(zrange.has_value());
+		REQUIRE(zrange->first == 2.0);
+		REQUIRE(zrange->second == 4.0);
+
+		// A ray that misses the sphere yields no range
+		const auto miss = M.ray_range({ 12.0, 2.0, 0.0 }, { -1.0, 0.0, 0.0 }, 1.0);
+		REQUIRE_FALSE(miss.has_value());
+	}
 }

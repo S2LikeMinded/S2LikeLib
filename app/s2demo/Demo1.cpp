@@ -172,6 +172,76 @@ namespace S2Demo
 		}
 	}
 
+	/// Builds a translucent mesh of the planar "segments": for each edge, the
+	/// crescent between the chord and its great-elliptic arc, fanned from the
+	/// first vertex. Vertex colors carry the translucent tint.
+	template <typename Polygon>
+	inline Mesh build_segment_mesh(const Polygon& poly, const Ellipsoid& e,
+		const LinearTransformation& T, Color tint)
+	{
+		constexpr int arc_segments = 32;
+		const size_t nv = poly.size();
+		// Fan from A over the arc samples; the degenerate first triangle is skipped
+		const size_t tris_per_edge = static_cast<size_t>(arc_segments) - 1;
+		const size_t tri_count = nv * tris_per_edge;
+		const int vertex_count = static_cast<int>(3 * tri_count);
+
+		Mesh mesh{};
+		mesh.vertexCount = vertex_count;
+		mesh.triangleCount = static_cast<int>(tri_count);
+		mesh.vertices = static_cast<float*>(MemAlloc(static_cast<size_t>(vertex_count) * 3 * sizeof(float)));
+		mesh.normals = static_cast<float*>(MemAlloc(static_cast<size_t>(vertex_count) * 3 * sizeof(float)));
+		mesh.colors = static_cast<unsigned char*>(MemAlloc(static_cast<size_t>(vertex_count) * 4 * sizeof(unsigned char)));
+
+		size_t v = 0;
+		for (size_t i = 0; i < nv; ++i)
+		{
+			const auto arc = poly.edge(static_cast<ptrdiff_t>(i), e, T);
+			const auto pts = arc.sample(arc_segments);
+			const E3 A = pts[0];
+			for (int k = 1; k < arc_segments; ++k)
+			{
+				const E3 P = pts[static_cast<size_t>(k)];
+				const E3 Q = pts[static_cast<size_t>(k + 1)];
+				// Geometric normal of the (A, P, Q) fan triangle; the fill is
+				// unlit and two-sided, so orientation is only cosmetic
+				const E3 normal = (P - A).cross(Q - A).normalized();
+				const E3 tri[3] = { A, P, Q };
+				for (int j = 0; j < 3; ++j)
+				{
+					mesh.vertices[3 * v + 0] = static_cast<float>(tri[j].x);
+					mesh.vertices[3 * v + 1] = static_cast<float>(tri[j].y);
+					mesh.vertices[3 * v + 2] = static_cast<float>(tri[j].z);
+					mesh.normals[3 * v + 0] = static_cast<float>(normal.x);
+					mesh.normals[3 * v + 1] = static_cast<float>(normal.y);
+					mesh.normals[3 * v + 2] = static_cast<float>(normal.z);
+					mesh.colors[4 * v + 0] = tint.r;
+					mesh.colors[4 * v + 1] = tint.g;
+					mesh.colors[4 * v + 2] = tint.b;
+					mesh.colors[4 * v + 3] = tint.a;
+					++v;
+				}
+			}
+		}
+		UploadMesh(&mesh, false);
+		return mesh;
+	}
+
+	/// Draws a line as alternating dashes (used for occluded interior chords)
+	inline void draw_dashed_line(Vector3 a, Vector3 b, Color color, int dashes = 12)
+	{
+		for (int i = 0; i < dashes; ++i)
+		{
+			if (i % 2 != 0)
+			{
+				continue;
+			}
+			const float t0 = static_cast<float>(i) / dashes;
+			const float t1 = static_cast<float>(i + 1) / dashes;
+			DrawLine3D(Vector3Lerp(a, b, t0), Vector3Lerp(a, b, t1), color);
+		}
+	}
+
 	/// Closest ray intersection with the quadric p^T M p = r^2 (p relative to
 	/// the origin-centered surface), used for surface picking.
 	inline std::optional<E3> ray_quadric_hit(
@@ -262,12 +332,14 @@ namespace S2Demo
 			int light_dir;
 			int view_pos;
 			int model;
+			int alpha;
 		} locs{
 			GetShaderLocation(smooth_shader, "uCenter"),
 			GetShaderLocation(smooth_shader, "uQuadric"),
 			GetShaderLocation(smooth_shader, "uLightDir"),
 			GetShaderLocation(smooth_shader, "uViewPos"),
-			GetShaderLocation(smooth_shader, "uModel")
+			GetShaderLocation(smooth_shader, "uModel"),
+			GetShaderLocation(smooth_shader, "uAlpha")
 		};
 
 		float center_val[3] = { 0.0f, 0.0f, 0.0f };
@@ -294,6 +366,16 @@ namespace S2Demo
 		sheared_material.shader = smooth_shader;
 		sheared_material.maps[MATERIAL_MAP_DIFFUSE].color = LIGHTGRAY;
 
+		// Translucent "segments": per-edge planar crescents between each chord
+		// and its great-elliptic arc, one mesh per demo case
+		std::array<Mesh, 3> segment_meshes{};
+		const Color segment_tint{ 255, 200, 90, 110 };
+		for (size_t i = 0; i < cases.size(); ++i)
+		{
+			segment_meshes[i] = build_segment_mesh(poly, s, cases[i].transform, segment_tint);
+		}
+		Material segment_material = LoadMaterialDefault();
+
 		// Setup 3D Camera positioned from direction v looking at origin
 		double dist2cam = 12.0;
 		Camera3D cam   = { 0 };
@@ -313,7 +395,9 @@ namespace S2Demo
 		bool show_axes = true;
 		bool show_arc = true;
 		bool show_chord = true;
-		int sphere_model = 1;
+		bool dashed_chords = true;  // solid mode: redraw occluded chords dashed
+		bool show_segments = true;  // translucent crescents between chord and arc
+		int ellipsoid_model = 3;    // default: solid view
 		int show_case = 0;
 		double vertex_size = 0.05f;
 
@@ -336,8 +420,8 @@ namespace S2Demo
 			Vector2 mouse_pos = GetMousePosition();
 			Ray ray = GetScreenToWorldRay(mouse_pos, cam);
 			// The bilinear form M satisfies p^T M p = 1 on the surface
-			const auto surface_hit = ray_quadric_hit(ray, quadrics[static_cast<size_t>(show_case)], 1.0);
-			bool outside_sphere = !surface_hit.has_value();
+			const auto ray_hit_ellipsoid = ray_quadric_hit(ray, quadrics[static_cast<size_t>(show_case)], 1.0);
+			bool mouse_outside_ellipsoid = !ray_hit_ellipsoid.has_value();
 
 			SetShaderValueMatrix(smooth_shader, locs.quadric,
 				to_quadric_matrix(quadrics[static_cast<size_t>(show_case)]));
@@ -346,7 +430,7 @@ namespace S2Demo
 			{
 				if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
 				{
-					if (outside_sphere || sphere_model == 0)
+					if (mouse_outside_ellipsoid || ellipsoid_model == 1)
 					{
 						is_dragging_rotation = true;
 					}
@@ -401,12 +485,34 @@ namespace S2Demo
 				DrawLine3D(origin, Vector3{ 0, 0, 3.6f }, BLUE);
 			}
 
-			// Render sphere s
-			switch (sphere_model)
+			// Convert E3 vertices to Raylib Vector3
+			std::array<Vector3, nv> pG;
+			for (size_t i = 0; i < nv; ++i)
 			{
-			case 1: { // Solid view
+				pG[i] = to_Vector3(view.transform(poly[i]));
+			}
+			Vector3 pQ = to_Vector3(query);
+
+			// Opaque chord pass: drawn before any surface so that in
+			// transparent mode the chords show through the surface. In solid
+			// mode the chords are interior (occluded) and are handled as a
+			// dashed overlay instead.
+			if (show_chord && ellipsoid_model != 3)
+			{
+				for (size_t i = 0; i < nv; ++i)
+				{
+					DrawLine3D(pG[i], pG[(i + 1) % nv], GOLD);
+				}
+			}
+
+			// Render sphere s
+			switch (ellipsoid_model)
+			{
+			case 3: { // Solid view
 				float view_pos_val[3] = { cam.position.x, cam.position.y, cam.position.z };
+				float alpha_val = 1.0f;
 				SetShaderValue(smooth_shader, locs.view_pos, view_pos_val, SHADER_UNIFORM_VEC3);
+				SetShaderValue(smooth_shader, locs.alpha, &alpha_val, SHADER_UNIFORM_FLOAT);
 				SetShaderValueMatrix(smooth_shader, locs.model,
 					show_case == 2 ? MatrixIdentity() : model_matrix);
 				BeginShaderMode(smooth_shader);
@@ -420,19 +526,47 @@ namespace S2Demo
 				}
 				EndShaderMode();
 			} break;
-			case 2: { // Wireframe view
+			case 0: { // Wireframe view
 				draw_mesh_wireframe(show_case == 2 ? sheared_mesh : sphere_mesh, PURPLE);
 				break;
 			}
+			case 1: // None: no surface drawn
+				break;
+			case 2: // Transparent view: drawn after the translucent fills
+				break;
 			}
 
-			// Convert E3 vertices to Raylib Vector3
-			std::array<Vector3, nv> pG;
-			for (size_t i = 0; i < nv; ++i)
+			// Translucent edge segments (crescent between chord and arc):
+			// skipped in solid mode to avoid clutter
+			if (show_segments && ellipsoid_model != 3)
 			{
-				pG[i] = to_Vector3(view.transform(poly[i]));
+				// Two-sided translucent fill: backface culling would hide one side
+				rlDisableBackfaceCulling();
+				DrawMesh(segment_meshes[static_cast<size_t>(show_case)], segment_material, MatrixIdentity());
+				rlEnableBackfaceCulling();
 			}
-			Vector3 pQ = to_Vector3(query);
+
+			// Transparent surface: drawn after the fills so the interior
+			// chords and segments remain visible through it
+			if (ellipsoid_model == 2)
+			{
+				float view_pos_val[3] = { cam.position.x, cam.position.y, cam.position.z };
+				float alpha_val = 0.45f;
+				SetShaderValue(smooth_shader, locs.view_pos, view_pos_val, SHADER_UNIFORM_VEC3);
+				SetShaderValue(smooth_shader, locs.alpha, &alpha_val, SHADER_UNIFORM_FLOAT);
+				SetShaderValueMatrix(smooth_shader, locs.model,
+					show_case == 2 ? MatrixIdentity() : model_matrix);
+				BeginShaderMode(smooth_shader);
+				if (show_case == 2)
+				{
+					DrawMesh(sheared_mesh, sheared_material, MatrixIdentity());
+				}
+				else
+				{
+					DrawSphereEx(origin, radius, 64, 64, LIGHTGRAY);
+				}
+				EndShaderMode();
+			}
 
 			// Ray-sphere collision detection for vertex hovering
 			int hovered_idx = -1;
@@ -482,27 +616,43 @@ namespace S2Demo
 			// Draw Great-Circle Arcs on sphere surface
 			if (show_arc)
 			{
+				// Bias the arc slightly toward the camera so it clears the
+				// surface depth (no z-fighting with the solid/transparent view)
+				const E3 cam_pos{ cam.position.x, cam.position.y, cam.position.z };
+				constexpr double surface_clearance = 0.02;
 				for (size_t i = 0; i < nv; ++i)
 				{
 					const auto arc = poly.edge(i, s, view.transform);
 					auto arc_pts = arc.sample(32);
 					for (size_t k = 0; k + 1 < arc_pts.size(); ++k)
 					{
-						Vector3 p0 = to_Vector3(arc_pts[k]);
-						Vector3 p1 = to_Vector3(arc_pts[k + 1]);
+						// Move toward the camera (subtract the view direction)
+						const E3 b0 = arc_pts[k] - (arc_pts[k] - cam_pos).normalized() * surface_clearance;
+						const E3 b1 = arc_pts[k + 1] - (arc_pts[k + 1] - cam_pos).normalized() * surface_clearance;
+						Vector3 p0 = to_Vector3(b0);
+						Vector3 p1 = to_Vector3(b1);
 
 						DrawLine3D(p0, p1, BLACK);
 					}
 				}
 			}
 
-			// Draw n-gon edges: V_0 -> V_1 -> ... -> V_{nv-1} -> V_0
-			if (show_chord)
+			// Solid mode: interior chords are occluded by the surface; when the
+			// dashed-chords toggle is on, redraw them as a dashed overlay
+			if (show_chord && ellipsoid_model == 3 && dashed_chords)
 			{
+				// rlgl batches line vertices and only applies GL state at flush
+				// time, so flush with depth ON before disabling it, and flush
+				// the dashes while depth is still OFF (EndMode3D would flush
+				// them with depth re-enabled and cull them behind the surface)
+				rlDrawRenderBatchActive();
+				rlDisableDepthTest();
 				for (size_t i = 0; i < nv; ++i)
 				{
-					DrawLine3D(pG[i], pG[(i + 1) % nv], GOLD);
+					draw_dashed_line(pG[i], pG[(i + 1) % nv], GOLD, 12);
 				}
+				rlDrawRenderBatchActive();
+				rlEnableDepthTest();
 			}
 
 			EndMode3D();
@@ -560,15 +710,18 @@ namespace S2Demo
 				{
 					if (BeginMenu("Ellipsoid"))
 					{
-						RadioButton("None", &sphere_model, 0);
-						RadioButton("Solid", &sphere_model, 1);
-						RadioButton("Wireframe", &sphere_model, 2);
+						RadioButton("Wireframe", &ellipsoid_model, 0);
+						RadioButton("None", &ellipsoid_model, 1);
+						RadioButton("Transparent", &ellipsoid_model, 2);
+						RadioButton("Solid", &ellipsoid_model, 3);
 						EndMenu();
 					}
 					if (BeginMenu("Edges"))
 					{
 						MenuItem("Sectional Arcs", nullptr, &show_arc);
 						MenuItem("Straight Chords", nullptr, &show_chord);
+						MenuItem("Shaded Segments", nullptr, &show_segments);
+						MenuItem("Dashed Chords (Solid Ellipsoid Only)", nullptr, &dashed_chords);
 						EndMenu();
 					}
 					if (BeginMenu("Coordinate System"))
@@ -598,9 +751,11 @@ namespace S2Demo
 
 				if (Button(ICON_FA_ROTATE " Reset"))
 				{
-					sphere_model = 1;
+					ellipsoid_model = 3;
 					show_arc = true;
 					show_chord = true;
+					dashed_chords = true;
+					show_segments = true;
 					orthographic = true;
 					cam_angle = v.ll();
 					view_needs_update = true;
@@ -683,12 +838,13 @@ namespace S2Demo
 				SameLine();
 				const char* model_labels[] =
 				{
-					ICON_FA_GLOBE " None " ICON_FA_GLOBE,
-					ICON_FA_GLOBE " Solid " ICON_FA_GLOBE,
 					ICON_FA_GLOBE " Wireframe " ICON_FA_GLOBE,
+					ICON_FA_GLOBE " None " ICON_FA_GLOBE,
+					ICON_FA_GLOBE " Transparent " ICON_FA_GLOBE,
+					ICON_FA_GLOBE " Solid " ICON_FA_GLOBE,
 				};
 				PushItemWidth(120.0f);
-				SliderInt("##SphereModel", &sphere_model, 0, 2, model_labels[sphere_model]);
+				SliderInt("##SphereModel", &ellipsoid_model, 0, 3, model_labels[ellipsoid_model]);
 				PopItemWidth();
 			}
 			End();
@@ -787,8 +943,13 @@ namespace S2Demo
 
 		rlImGuiShutdown();
 		UnloadMaterial(sheared_material);
+		UnloadMaterial(segment_material);
 		UnloadMesh(sphere_mesh);
 		UnloadMesh(sheared_mesh);
+		for (Mesh& m : segment_meshes)
+		{
+			UnloadMesh(m);
+		}
 		CloseWindow();
 
 		ost << "Demo 1 exited. Returned to CLI.\n";

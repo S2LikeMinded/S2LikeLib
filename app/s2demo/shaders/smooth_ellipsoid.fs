@@ -13,6 +13,8 @@ uniform mat4 uQuadric;
 uniform vec3 uLightDir;
 // Camera/viewer position in World Space for specular highlight calculation
 uniform vec3 uViewPos;
+// Surface opacity (1.0 opaque, < 1.0 translucent)
+uniform float uAlpha;
 
 out vec4 finalColor;
 
@@ -39,5 +41,5 @@ void main()
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 16.0) * 0.35;
 
     vec3 baseColor = fragColor.rgb;
-    finalColor = vec4((ambient + diff * 0.75 + spec) * baseColor, fragColor.a);
+    finalColor = vec4((ambient + diff * 0.75 + spec) * baseColor, fragColor.a * uAlpha);
 }

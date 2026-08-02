@@ -6,6 +6,7 @@
 #include <array>
 #include <cmath>
 #include <optional>
+#include <utility>
 
 namespace S2LL
 {
@@ -100,9 +101,12 @@ namespace S2LL
 				+ m[4] * a.y * b.y + m[5] * (a.y * b.z + a.z * b.y) + m[8] * a.z * b.z;
 		}
 
-		/// Closest ray intersection with p^T M p = rhs (ray direction assumed
-		/// normalized). Returns nullopt when the ray misses.
-		inline std::optional<E3> intersect_ray(const E3& o, const E3& d, double rhs) const
+		/// Both ray intersections with p^T M p = rhs as the ray parameters
+		/// t0 <= t1 (ray direction assumed normalized). Returns nullopt when
+		/// the ray misses. The two roots bracket the surface along the ray:
+		/// t0 is the entry (front) point and t1 the exit (back) point.
+		inline std::optional<std::pair<double, double>> ray_range(
+			const E3& o, const E3& d, double rhs) const
 		{
 			const double a = (*this)(d, d);
 			const double b = 2.0 * (*this)(o, d);
@@ -115,6 +119,20 @@ namespace S2LL
 			const double sq = std::sqrt(disc);
 			const double t0 = (-b - sq) / (2.0 * a);
 			const double t1 = (-b + sq) / (2.0 * a);
+			return std::make_pair(t0, t1);
+		}
+
+		/// Closest ray intersection with p^T M p = rhs (ray direction assumed
+		/// normalized). Returns nullopt when the ray misses.
+		inline std::optional<E3> intersect_ray(const E3& o, const E3& d, double rhs) const
+		{
+			const auto range = ray_range(o, d, rhs);
+			if (!range)
+			{
+				return std::nullopt;
+			}
+			const double t0 = range->first;
+			const double t1 = range->second;
 			if (t0 >= 0.0)
 			{
 				return E3{ o.x + t0 * d.x, o.y + t0 * d.y, o.z + t0 * d.z };
