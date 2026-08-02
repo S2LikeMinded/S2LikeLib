@@ -54,4 +54,72 @@ TEST_CASE("Ellipsoids", "[core][surface]") {
 		REQUIRE(e3_ll.y == 0.0);
 		REQUIRE(e3_ll.z == 0.0);
 	}
+
+	SECTION("Linear transformation shear and inverse") {
+		// (x, y, z) -> (x - (a/b)y, y, z - (c/b)y)
+		const S2LL::LinearTransformation T(2.0, 4.0, 1.0);
+		const S2LL::E3 p{ 6.0, 8.0, 3.0 };
+		const S2LL::E3 sheared = T(p);
+		REQUIRE(sheared.x == 2.0); // 6 - (2/4)*8
+		REQUIRE(sheared.y == 8.0);
+		REQUIRE(sheared.z == 1.0); // 3 - (1/4)*8
+
+		const S2LL::E3 back = T.inverse(sheared);
+		REQUIRE(back.x == p.x);
+		REQUIRE(back.y == p.y);
+		REQUIRE(back.z == p.z);
+	}
+
+	SECTION("Sheared sphere quadric has cross terms") {
+		// Unit sphere sheared by (a, b, c) = (1, 2, 0.5):
+		// M = S^-T S^-1 with S = [[1, -kx, 0], [0, 1, 0], [0, -kz, 1]]
+		//   = [[1, kx, 0], [kx, 1+kx^2+kz^2, kz], [0, kz, 1]]
+		const S2LL::LinearTransformation T(1.0, 2.0, 0.5);
+		const auto M = T.quadric(S2LL::UnitSphere);
+		REQUIRE(M.m[0] == 1.3125); // 1 + kx^2 + kz^2
+		REQUIRE(M.m[1] == 0.5);
+		REQUIRE(M.m[2] == 0.0);
+		REQUIRE(M.m[3] == 0.5);
+		REQUIRE(M.m[4] == 1.3125); // 1 + 0.25 + 0.0625
+		REQUIRE(M.m[5] == 0.25);
+		REQUIRE(M.m[6] == 0.0);
+		REQUIRE(M.m[7] == 0.25);
+		REQUIRE(M.m[8] == 1.0);
+	}
+
+	SECTION("Identity transformation leaves points and quadric unchanged") {
+		const S2LL::LinearTransformation I;
+		const S2LL::E3 p{ -1.0, 2.5, 7.0 };
+		const S2LL::E3 same = I(p);
+		REQUIRE(same.x == p.x);
+		REQUIRE(same.y == p.y);
+		REQUIRE(same.z == p.z);
+
+		const auto M = I.quadric(S2LL::Ellipsoid(3.0));
+		REQUIRE(M.m[0] == 1.0 / 9.0);
+		REQUIRE(M.m[4] == 1.0 / 9.0);
+		REQUIRE(M.m[8] == 1.0 / 9.0);
+		REQUIRE(M.m[1] == 0.0);
+		REQUIRE(M.m[5] == 0.0);
+	}
+
+	SECTION("BilinearForm operators and ray intersection") {
+		// Unit sphere: q(p) = p^T M p with M = I
+		const S2LL::BilinearForm M{ 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0 };
+		const S2LL::E3 a{ 1.0, 2.0, 3.0 };
+		const S2LL::E3 b{ 4.0, 5.0, 6.0 };
+		REQUIRE(M(a) == 14.0);            // 1 + 4 + 9
+		REQUIRE(M(a, b) == 32.0);         // 1*4 + 2*5 + 3*6
+
+		// Ray from (12,0,0) toward the origin hits the unit sphere at (1,0,0)
+		const auto hit = M.intersect_ray({ 12.0, 0.0, 0.0 }, { -1.0, 0.0, 0.0 }, 1.0);
+		REQUIRE(hit.has_value());
+		REQUIRE(hit->x == 1.0);
+		REQUIRE(hit->y == 0.0);
+		REQUIRE(hit->z == 0.0);
+
+		// A ray that misses the sphere yields no intersection
+		const auto miss = M.intersect_ray({ 12.0, 2.0, 0.0 }, { -1.0, 0.0, 0.0 }, 1.0);
+		REQUIRE_FALSE(miss.has_value());
+	}
 }

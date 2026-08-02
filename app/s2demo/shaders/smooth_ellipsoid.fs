@@ -6,10 +6,9 @@ in vec4 fragColor;
 
 // Center position of the ellipsoid in World Space
 uniform vec3 uCenter;
-// Semi-principal axes lengths (a, b, c) of the ellipsoid
-uniform vec3 uSemiAxes;
-// Flag: 1 if the ellipsoid is a sphere (a == b == c), 0 otherwise
-uniform int uIsSphere;
+// Quadric matrix M (upper-left 3x3) of the ellipsoid: p^T M p = 1 in World
+// Space, with M including any shear/rotation of the base surface
+uniform mat4 uQuadric;
 // Directional light vector in World Space pointing towards the light source
 uniform vec3 uLightDir;
 // Camera/viewer position in World Space for specular highlight calculation
@@ -22,20 +21,12 @@ void main()
     vec3 N;
     vec3 p = fragPosition - uCenter;
 
-    if (uIsSphere != 0)
-    {
-        // Special case for sphere: Smooth per-pixel radial normal
-        N = normalize(p);
-    }
-    else
-    {
-        // Triaxial ellipsoid: Gradient of x^2/a^2 + y^2/b^2 + z^2/c^2 = 1
-        // Normal N = normalize(x/a^2, y/b^2, z/c^2)
-        vec3 invAxesSq = vec3(1.0 / (uSemiAxes.x * uSemiAxes.x),
-                              1.0 / (uSemiAxes.y * uSemiAxes.y),
-                              1.0 / (uSemiAxes.z * uSemiAxes.z));
-        N = normalize(p * invAxesSq);
-    }
+    // General ellipsoid: gradient of p^T M p is 2 M p, whose direction is the
+    // surface normal. This covers spheres (M = (1/r^2) I) and sheared ellipsoids.
+    vec3 Mp = vec3(dot(uQuadric[0].xyz, p),
+                   dot(uQuadric[1].xyz, p),
+                   dot(uQuadric[2].xyz, p));
+    N = normalize(Mp);
 
     // Directional light vector (pointing towards light source in World Space)
     vec3 lightDir = normalize(uLightDir);

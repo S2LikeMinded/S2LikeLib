@@ -3,6 +3,8 @@
 #include <S2LL/Core/Coordinates.hpp>
 #include <S2LL/Core/Surfaces.hpp>
 
+#include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <initializer_list>
 #include <vector>
@@ -45,13 +47,38 @@ namespace S2LL
 
 	// Edge traced by the intersection of the surface with the plane through the
 	// two vertices (a great ellipse when the plane passes through the ellipsoid
-	// center). Its shape depends on the ellipsoid's axes.
-	//
-	// Placeholder: currently stores only the endpoints; the ellipsoid enters the
-	// picture through the edge factory.
+	// center). The pre-image is the great circle through a and b on the base
+	// sphere; the linear transformation pushes it to the world surface.
 	struct EllipticArc
 	{
 		E3 a, b;
+		double radius;
+		LinearTransformation transform;
+
+		/// Samples the minor great-elliptic arc from a to b as a polyline in
+		/// world space. The pre-image great circle is sampled on the base
+		/// sphere and pushed through the transformation.
+		inline std::vector<E3> sample(int num_segments = 32) const
+		{
+			std::vector<E3> points;
+			points.reserve(static_cast<size_t>(num_segments) + 1);
+
+			E3 u = a.normalized();
+			E3 v = b.normalized();
+
+			double d = std::clamp(u.dot(v), -1.0, 1.0);
+			double theta = std::acos(d);
+			E3 w = (v - u * d).normalized();
+
+			for (int i = 0; i <= num_segments; ++i)
+			{
+				double t = static_cast<double>(i) / num_segments;
+				double angle = t * theta;
+				E3 p = (std::cos(angle) * u + std::sin(angle) * w) * radius;
+				points.push_back(transform(p));
+			}
+			return points;
+		}
 	};
 
 	// Edge-model traits. Every supported (geometry tag, vertex type) combination
@@ -66,7 +93,9 @@ namespace S2LL
 	{
 		using edge_type = LineSegment<E2>;
 
-		static constexpr LineSegment<E2> edge(const E2& a, const E2& b, const Ellipsoid&)
+		static constexpr LineSegment<E2> edge(
+			const E2& a, const E2& b, const Ellipsoid&,
+			const LinearTransformation& = LinearTransformation{})
 		{
 			return LineSegment<E2>{ a, b };
 		}
@@ -83,7 +112,9 @@ namespace S2LL
 	{
 		using edge_type = LineSegment<E3>;
 
-		static constexpr LineSegment<E3> edge(const E3& a, const E3& b, const Ellipsoid&)
+		static constexpr LineSegment<E3> edge(
+			const E3& a, const E3& b, const Ellipsoid&,
+			const LinearTransformation& = LinearTransformation{})
 		{
 			return LineSegment<E3>{ a, b };
 		}
@@ -94,9 +125,11 @@ namespace S2LL
 	{
 		using edge_type = EllipticArc;
 
-		static constexpr EllipticArc edge(const E3& a, const E3& b, const Ellipsoid&)
+		static inline EllipticArc edge(
+			const E3& a, const E3& b, const Ellipsoid& e,
+			const LinearTransformation& T = LinearTransformation{})
 		{
-			return EllipticArc{ a, b };
+			return EllipticArc{ a, b, e.major(), T };
 		}
 	};
 
@@ -105,7 +138,9 @@ namespace S2LL
 	{
 		using edge_type = GeodesicArc;
 
-		static constexpr GeodesicArc edge(const E3& a, const E3& b, const Ellipsoid&)
+		static constexpr GeodesicArc edge(
+			const E3& a, const E3& b, const Ellipsoid&,
+			const LinearTransformation& = LinearTransformation{})
 		{
 			return GeodesicArc{ a, b };
 		}
@@ -138,10 +173,13 @@ namespace S2LL
 		constexpr V& operator[](ptrdiff_t i) noexcept { return boundary[i]; }
 
 		/// Realizes the i-th edge on the given surface (unit sphere by default);
-		/// wraps cyclically so the closing edge is included
-		constexpr edge_type edge(ptrdiff_t i, const Ellipsoid& e = UnitSphere) const
+		/// wraps cyclically so the closing edge is included. The optional linear
+		/// transformation shears the base surface (Demo 1c).
+		constexpr edge_type edge(
+			ptrdiff_t i, const Ellipsoid& e = UnitSphere,
+			const LinearTransformation& T = LinearTransformation{}) const
 		{
-			return EdgeTraits<Tag, V>::edge(boundary[i], boundary[i + 1], e);
+			return EdgeTraits<Tag, V>::edge(boundary[i], boundary[i + 1], e, T);
 		}
 	};
 

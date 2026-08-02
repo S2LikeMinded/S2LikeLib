@@ -40,6 +40,18 @@ add_executable(S2Demo
 	${imgui_SOURCE_DIR}/imgui_widgets.cpp
 )
 
+# Demo source embeds UTF-8 literals (e.g. U+00B2 superscript two); MSVC needs /utf-8 to interpret
+# them as UTF-8 instead of the active code page.
+if(MSVC)
+	target_compile_options(S2Demo PRIVATE /utf-8)
+endif()
+
+# ProggyClean.ttf ships with the fetched Dear ImGui dependency (original by
+# Tristan Grimmer, 2004/2005, MIT, https://github.com/bluescan/proggyfonts).
+# Copy it into this target's build directory; S2DEMO_RESOURCE_DIR points there.
+file(COPY "${imgui_SOURCE_DIR}/misc/fonts/ProggyClean.ttf"
+	DESTINATION "${CMAKE_CURRENT_BINARY_DIR}/resources")
+
 configure_file(S2DemoConfig.hpp.in S2DemoConfig.hpp)
 
 target_include_directories(S2Demo PRIVATE
