@@ -10,7 +10,7 @@ namespace S2LL
 	}
 
 	Ellipsoid::Ellipsoid(double a, double inv_f)
-		: a(a), b(a), c(S2LL::sub(a, S2LL::div(a, inv_f)))
+		: a(a), b(a), c(S2LL::Sub(a, S2LL::Div(a, inv_f)))
 	{
 	}
 
@@ -21,6 +21,6 @@ namespace S2LL
 
 	double Ellipsoid::inv_f() const
 	{
-		return static_cast<double>(S2LL::div(a, S2LL::sub(a, c)));
+		return static_cast<double>(S2LL::Div(a, S2LL::Sub(a, c)));
 	}
 }

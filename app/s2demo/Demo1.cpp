@@ -1,10 +1,7 @@
 #include "S2DemoConfig.hpp"
-#include <raylib.h>
-#include <raymath.h>
+#include "S2Raylib.hpp"
 #include <rlgl.h>
-#include <rlImGui.h>
 #include <extras/IconsFontAwesome6.h>
-#include <imgui.h>
 
 #include "Demos.hpp"
 #include "DemoSignalGuard.hpp"
@@ -17,30 +14,15 @@
 #include <format>
 #include <optional>
 
-#undef CloseWindow
-#undef ShowCursor
-#undef Rectangle
-#undef DrawText
-#undef DrawTextA
-#undef DrawTextW
-#undef LoadImage
-#undef LoadImageA
-#undef LoadImageW
-#undef PlaySound
-#undef PlaySoundA
-#undef PlaySoundW
-
 using namespace S2LL;
 using namespace S2LL::Literals;
 using namespace ImGui;
+using S2App::to_Vector3;
+using S2App::to_quadric_matrix;
+using S2App::TextFormatted;
 
 namespace S2Demo
 {
-	inline Vector3 to_Vector3(const E3& e) noexcept
-	{
-		return Vector3{ static_cast<float>(e.x), static_cast<float>(e.y), static_cast<float>(e.z) };
-	}
-
 	/// One demo scene: a base surface (sphere) possibly sheared into a general
 	/// ellipsoid, the world-space query point, and the equation strings shown
 	/// in the info panel. The shear doubles only appear in the ellipsoid
@@ -67,8 +49,8 @@ namespace S2Demo
 		{
 			// Compute the shear factors with extended precision (the inputs are
 			// themselves Double-derived), then format as decimal strings.
-			const Double kx = Lift(sx) / Lift(sy);
-			const Double kz = Lift(sz) / Lift(sy);
+			const Double kx = Double::make(sx) / Double::make(sy);
+			const Double kz = Double::make(sz) / Double::make(sy);
 			shear_equation = std::format("(x,y,z) -> (x - ({:.3f})y, y, z - ({:.3f})y)",
 				static_cast<double>(kx), static_cast<double>(kz));
 			quadric_equation = std::format(
@@ -78,17 +60,6 @@ namespace S2Demo
 				sphere_radius * sphere_radius);
 		}
 	};
-
-	/// 4x4 matrix carrying the 3x3 bilinear form (row-major block) for the shader
-	inline Matrix to_quadric_matrix(const BilinearForm& q)
-	{
-		return Matrix{
-			static_cast<float>(q.m[0]), static_cast<float>(q.m[1]), static_cast<float>(q.m[2]), 0.0f,
-			static_cast<float>(q.m[3]), static_cast<float>(q.m[4]), static_cast<float>(q.m[5]), 0.0f,
-			static_cast<float>(q.m[6]), static_cast<float>(q.m[7]), static_cast<float>(q.m[8]), 0.0f,
-			0.0f, 0.0f, 0.0f, 1.0f
-		};
-	}
 
 	/// Builds the mesh of the image of the base sphere under the (possibly
 	/// shearing) transformation. The sphere is rotationally symmetric, so
@@ -253,12 +224,6 @@ namespace S2Demo
 			rhs);
 	}
 
-	template <typename... Args>
-	inline void TextFormatted(std::format_string<Args...> fmt, Args&&... args)
-	{
-		TextUnformatted(std::format(fmt, std::forward<Args>(args)...).c_str());
-	}
-
 	void RunDemo1(std::ostream& ost, DemoContext& ctx)
 	{
 		DemoSignalGuard guard;
@@ -270,15 +235,15 @@ namespace S2Demo
 		const auto nv = poly.size();
 		// Query points for Demos 1a & 1b: Q lies on sphere R=3 and on the same great circle
 		// as poly's vertices[1] (3,0,0) and vertices[2] (2,2,1), at angle theta = 5*pi/12 (75 deg).
-		auto [sin_a, cos_a] = sin_and_cos(75_Deg);
-		Double sqrt5 = sqrt(Lift(5));
+		auto [sin_a, cos_a] = SinCos(75_Deg);
+		Double sqrt5 = Sqrt(5);
 		Double qx = 3 * cos_a;
 		Double qy = 6 * sin_a / sqrt5;
 		Double qz = 3 * sin_a / sqrt5;
 
-		// x: +/-(3/ 4)(sqrt( 6)-sqrt( 2))
-		// y:    (3/10)(sqrt(30)+sqrt(10))
-		// z:    (3/20)(sqrt(30)+sqrt(10))
+		// x: +/-(3/ 4)(Sqrt( 6)-Sqrt( 2))
+		// y:    (3/10)(Sqrt(30)+Sqrt(10))
+		// z:    (3/20)(Sqrt(30)+Sqrt(10))
 		const E3 Q_1a(static_cast<double>(qx), static_cast<double>(qy), static_cast<double>(qz));
 		const E3 Q_1b(static_cast<double>(-qx), static_cast<double>(qy), static_cast<double>(qz));
 
@@ -293,13 +258,8 @@ namespace S2Demo
 		// Direction of view (viewing-from direction, normalized)
 		const E3 v = E3{ 1, 1, 1 }.normalize();
 
-		// Configure resizable Raylib window
-		SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-		InitWindow(800, 640, "S2Demo - PiSP Paper");
-		SetTargetFPS(60);
-
-		// Initialize rlImGui
-		rlImGuiSetup(true);
+		// Configure resizable Raylib window + rlImGui
+		S2App::InitGuiApp("S2Demo - PiSP Paper", 800, 640);
 
 		// rlImGui's default font is the embedded ProggyClean bitmap or the
 		// ProggyForever subset (depending on display scale), with Font Awesome
@@ -321,28 +281,12 @@ namespace S2Demo
 		GetIO().Fonts->AddFontFromFileTTF(font_path.c_str(), font_cfg.SizePixels,
 			&font_cfg, latin1_supplement);
 
-		// Load GLSL shader for smooth per-pixel shading from standalone files
-		const std::string vs_path = std::string(S2DEMO_SHADER_DIR) + "/smooth_ellipsoid.vs";
-		const std::string fs_path = std::string(S2DEMO_SHADER_DIR) + "/smooth_ellipsoid.fs";
-		Shader smooth_shader = LoadShader(vs_path.c_str(), fs_path.c_str());
-		struct ShaderLocations
-		{
-			int center;
-			int quadric;
-			int light_dir;
-			int view_pos;
-			int model;
-			int alpha;
-		} locs{
-			GetShaderLocation(smooth_shader, "uCenter"),
-			GetShaderLocation(smooth_shader, "uQuadric"),
-			GetShaderLocation(smooth_shader, "uLightDir"),
-			GetShaderLocation(smooth_shader, "uViewPos"),
-			GetShaderLocation(smooth_shader, "uModel"),
-			GetShaderLocation(smooth_shader, "uAlpha")
-		};
+		// Load the shared GLSL shader for smooth per-pixel shading
+		S2App::SmoothSurfaceShader smooth_shader;
+		const std::string vs_path = std::string(S2APP_SHADER_DIR) + "/smooth_surface.vs";
+		const std::string fs_path = std::string(S2APP_SHADER_DIR) + "/smooth_surface.fs";
+		smooth_shader.Load(vs_path, fs_path);
 
-		float center_val[3] = { 0.0f, 0.0f, 0.0f };
 		// Quadric of the base sphere under each case's transformation
 		const Ellipsoid base_sphere(static_cast<double>(cases[0].radius));
 		std::array<BilinearForm, 3> quadrics{};
@@ -350,20 +294,15 @@ namespace S2Demo
 		{
 			quadrics[i] = cases[i].transform.quadric(base_sphere);
 		}
-		// Light coming from +z direction in world space
-		float light_dir_val[3] = { 0.0f, 0.0f, 1.0f };
 
 		// Model matrix aligning sphere poles with Z-axis in World Space
 		Matrix model_matrix = MatrixRotateX(90.0f * DEG2RAD);
-
-		SetShaderValue(smooth_shader, locs.center, center_val, SHADER_UNIFORM_VEC3);
-		SetShaderValue(smooth_shader, locs.light_dir, light_dir_val, SHADER_UNIFORM_VEC3);
 
 		// Surface meshes: identity (sphere, Demos 1a/1b) and sheared (Demo 1c)
 		Mesh sphere_mesh = generate_surface_mesh(cases[0].radius, LinearTransformation{});
 		Mesh sheared_mesh = generate_surface_mesh(cases[0].radius, cases[2].transform);
 		Material sheared_material = LoadMaterialDefault();
-		sheared_material.shader = smooth_shader;
+		sheared_material.shader = smooth_shader.shader();
 		sheared_material.maps[MATERIAL_MAP_DIFFUSE].color = LIGHTGRAY;
 
 		// Translucent "segments": per-edge planar crescents between each chord
@@ -376,19 +315,11 @@ namespace S2Demo
 		}
 		Material segment_material = LoadMaterialDefault();
 
-		// Setup 3D Camera positioned from direction v looking at origin
-		double dist2cam = 12.0;
-		Camera3D cam   = { 0 };
-		cam.position   = to_Vector3(dist2cam * v);
-		cam.target     = Vector3{ 0.0f, 0.0f, 0.0f };
-		cam.up         = Vector3{ 0.0f, 0.0f, 1.0f };
+		// Orbit camera looking from direction v at distance 12
+		const double dist2cam = 12.0;
+		S2App::OrbitCamera orbit;
+		orbit.Init(v, static_cast<float>(dist2cam), 8.0f, 45.0f);
 		bool orthographic = true;
-		cam.fovy       = orthographic ? 8.0f : 45.0f;
-		cam.projection = orthographic ? CAMERA_ORTHOGRAPHIC : CAMERA_PERSPECTIVE;
-
-		// Camera state
-		LL cam_angle = v.ll();
-		bool view_needs_update = true;
 
 		// View toggles
 		bool show_xy_plane = false;
@@ -403,7 +334,6 @@ namespace S2Demo
 
 		// Interaction state
 		bool rotate_tool = true;
-		bool is_dragging_rotation = false;
 		bool exit_requested = false;
 
 		ost << "3D Window Launched (Arbitrarily Resizable).\n"
@@ -418,50 +348,19 @@ namespace S2Demo
 			float radius = view.radius;
 
 			Vector2 mouse_pos = GetMousePosition();
-			Ray ray = GetScreenToWorldRay(mouse_pos, cam);
+			Ray ray = GetScreenToWorldRay(mouse_pos, orbit.camera());
 			// The bilinear form M satisfies p^T M p = 1 on the surface
 			const auto ray_hit_ellipsoid = ray_quadric_hit(ray, quadrics[static_cast<size_t>(show_case)], 1.0);
 			bool mouse_outside_ellipsoid = !ray_hit_ellipsoid.has_value();
 
-			SetShaderValueMatrix(smooth_shader, locs.quadric,
-				to_quadric_matrix(quadrics[static_cast<size_t>(show_case)]));
+			smooth_shader.SetQuadric(quadrics[static_cast<size_t>(show_case)]);
 
-			if (rotate_tool && !GetIO().WantCaptureMouse)
-			{
-				if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT))
-				{
-					if (mouse_outside_ellipsoid || ellipsoid_model == 1)
-					{
-						is_dragging_rotation = true;
-					}
-				}
-			}
-
-			if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT))
-			{
-				is_dragging_rotation = false;
-			}
-
-			if (is_dragging_rotation && IsMouseButtonDown(MOUSE_BUTTON_LEFT))
-			{
-				Vector2 delta = GetMouseDelta();
-				cam_angle.lon -= static_cast<double>(delta.x) * 0.005;
-				cam_angle.lat += static_cast<double>(delta.y) * 0.005;
-				cam_angle.lat  = std::clamp(cam_angle.lat, -90_deg, 90_deg);
-				view_needs_update = true;
-			}
-
-			if (view_needs_update)
-			{
-				cam.position = to_Vector3(dist2cam * cam_angle.e3());
-				// Up vector = latitude gradient, always perpendicular to view direction
-				cam.up = to_Vector3(LL{ cam_angle.lat + 0.5_pi, cam_angle.lon }.e3());
-				view_needs_update = false;
-			}
-
-			cam.projection = orthographic ? CAMERA_ORTHOGRAPHIC : CAMERA_PERSPECTIVE;
-			cam.fovy       = orthographic ? 8.0f : 45.0f;
-			UpdateCamera(&cam, CAMERA_CUSTOM);
+			// Orbit camera: dragging starts only when the rotate tool is on
+			// and the press is outside the surface (or the surface is hidden)
+			orbit.drag_allowed = rotate_tool && (mouse_outside_ellipsoid || ellipsoid_model == 1);
+			orbit.SetOrthographic(orthographic);
+			orbit.Update();
+			const Camera3D& cam = orbit.camera();
 
 			BeginDrawing();
 			ClearBackground(DARKGRAY);
@@ -480,9 +379,7 @@ namespace S2Demo
 			// Draw E3 Coordinate Axes (X=Red, Y=Green, Z=Blue)
 			if (show_axes)
 			{
-				DrawLine3D(origin, Vector3{ 3.6f, 0, 0 }, RED);
-				DrawLine3D(origin, Vector3{ 0, 3.6f, 0 }, GREEN);
-				DrawLine3D(origin, Vector3{ 0, 0, 3.6f }, BLUE);
+				S2App::DrawAxesLines(3.6f);
 			}
 
 			// Convert E3 vertices to Raylib Vector3
@@ -509,13 +406,10 @@ namespace S2Demo
 			switch (ellipsoid_model)
 			{
 			case 3: { // Solid view
-				float view_pos_val[3] = { cam.position.x, cam.position.y, cam.position.z };
-				float alpha_val = 1.0f;
-				SetShaderValue(smooth_shader, locs.view_pos, view_pos_val, SHADER_UNIFORM_VEC3);
-				SetShaderValue(smooth_shader, locs.alpha, &alpha_val, SHADER_UNIFORM_FLOAT);
-				SetShaderValueMatrix(smooth_shader, locs.model,
-					show_case == 2 ? MatrixIdentity() : model_matrix);
-				BeginShaderMode(smooth_shader);
+				smooth_shader.SetViewPos(cam.position);
+				smooth_shader.SetAlpha(1.0f);
+				smooth_shader.SetModel(show_case == 2 ? MatrixIdentity() : model_matrix);
+				smooth_shader.Begin();
 				if (show_case == 2)
 				{
 					DrawMesh(sheared_mesh, sheared_material, MatrixIdentity());
@@ -524,7 +418,7 @@ namespace S2Demo
 				{
 					DrawSphereEx(origin, radius, 64, 64, LIGHTGRAY);
 				}
-				EndShaderMode();
+				smooth_shader.End();
 			} break;
 			case 0: { // Wireframe view
 				draw_mesh_wireframe(show_case == 2 ? sheared_mesh : sphere_mesh, PURPLE);
@@ -550,13 +444,10 @@ namespace S2Demo
 			// chords and segments remain visible through it
 			if (ellipsoid_model == 2)
 			{
-				float view_pos_val[3] = { cam.position.x, cam.position.y, cam.position.z };
-				float alpha_val = 0.45f;
-				SetShaderValue(smooth_shader, locs.view_pos, view_pos_val, SHADER_UNIFORM_VEC3);
-				SetShaderValue(smooth_shader, locs.alpha, &alpha_val, SHADER_UNIFORM_FLOAT);
-				SetShaderValueMatrix(smooth_shader, locs.model,
-					show_case == 2 ? MatrixIdentity() : model_matrix);
-				BeginShaderMode(smooth_shader);
+				smooth_shader.SetViewPos(cam.position);
+				smooth_shader.SetAlpha(0.45f);
+				smooth_shader.SetModel(show_case == 2 ? MatrixIdentity() : model_matrix);
+				smooth_shader.Begin();
 				if (show_case == 2)
 				{
 					DrawMesh(sheared_mesh, sheared_material, MatrixIdentity());
@@ -565,7 +456,7 @@ namespace S2Demo
 				{
 					DrawSphereEx(origin, radius, 64, 64, LIGHTGRAY);
 				}
-				EndShaderMode();
+				smooth_shader.End();
 			}
 
 			// Ray-sphere collision detection for vertex hovering
@@ -660,25 +551,7 @@ namespace S2Demo
 			// Draw x, y, z axis labels at tips when axes are enabled
 			if (show_axes)
 			{
-				const int axes_label_font_size = 20;
-				const int axes_label_font_spacing = 0;
-
-				Vector2 pX = GetWorldToScreen(Vector3{ 4.0f, 0.0f, 0.0f }, cam);
-				Vector2 pY = GetWorldToScreen(Vector3{ 0.0f, 4.0f, 0.0f }, cam);
-				Vector2 pZ = GetWorldToScreen(Vector3{ 0.0f, 0.0f, 4.0f }, cam);
-
-				Vector2 label_size = MeasureTextEx(GetFontDefault(),
-					"x", axes_label_font_size, axes_label_font_spacing);
-				pX.x -= 0.5f * label_size.x;
-				pX.y -= 0.5f * label_size.y;
-				pY.x -= 0.5f * label_size.x;
-				pY.y -= 0.5f * label_size.y;
-				pZ.x -= 0.5f * label_size.x;
-				pZ.y -= 0.5f * label_size.y;
-
-				DrawText("x", static_cast<int>(pX.x), static_cast<int>(pX.y), axes_label_font_size, RED);
-				DrawText("y", static_cast<int>(pY.x), static_cast<int>(pY.y), axes_label_font_size, GREEN);
-				DrawText("z", static_cast<int>(pZ.x), static_cast<int>(pZ.y), axes_label_font_size, BLUE);
+				S2App::DrawAxesLabels(3.6f, cam);
 			}
 
 			// Setup ImGui overlay & main menu bar
@@ -698,8 +571,7 @@ namespace S2Demo
 				{
 					if (MenuItem("Reset View"))
 					{
-						cam_angle = v.ll();
-						view_needs_update = true;
+						orbit.Reset(v);
 					}
 					Separator();
 					MenuItem("Orthographic View", nullptr, &orthographic);
@@ -757,8 +629,7 @@ namespace S2Demo
 					dashed_chords = true;
 					show_segments = true;
 					orthographic = true;
-					cam_angle = v.ll();
-					view_needs_update = true;
+					orbit.Reset(v);
 				}
 
 				SameLine();
@@ -767,8 +638,7 @@ namespace S2Demo
 					// The camera lives in world (sheared) space, so look from
 					// the transformed query point T(Q0)
 					auto coords = view.transform(view.Q0).ll();
-					cam_angle = coords;
-					view_needs_update = true;
+					orbit.Reset(coords);
 				}
 
 				SameLine();
@@ -941,7 +811,11 @@ namespace S2Demo
 			EndDrawing();
 		}
 
-		rlImGuiShutdown();
+		// raylib's UnloadMaterial() also unloads the shader attached to the
+		// material (rmodels.c), and sheared_material.shader is a by-value copy
+		// of the shared SmoothSurfaceShader. Clear the copy first so the RAII
+		// owner frees the locations array exactly once.
+		sheared_material.shader = Shader{};
 		UnloadMaterial(sheared_material);
 		UnloadMaterial(segment_material);
 		UnloadMesh(sphere_mesh);
@@ -950,7 +824,7 @@ namespace S2Demo
 		{
 			UnloadMesh(m);
 		}
-		CloseWindow();
+		S2App::ShutdownGuiApp();
 
 		ost << "Demo 1 exited. Returned to CLI.\n";
 	}

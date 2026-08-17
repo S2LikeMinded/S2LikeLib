@@ -38,7 +38,40 @@ add_subdirectory(src)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_HOME_DIRECTORY}/bin)
 
-add_subdirectory(app)
+# Shared GUI dependencies for the 3D demo applications (S2Demo, S2Hare).
+# Fetched once at the top level so every app links against the same
+# raylib / Dear ImGui / rlImGui build.
+FetchContent_Declare(
+	raylib
+	GIT_REPOSITORY https://github.com/raysan5/raylib.git
+	GIT_TAG 5.5
+)
+
+FetchContent_Declare(
+	imgui
+	GIT_REPOSITORY https://github.com/ocornut/imgui.git
+	GIT_TAG docking
+)
+
+FetchContent_Declare(
+	rlImGui
+	GIT_REPOSITORY https://github.com/raylib-extras/rlImGui.git
+	GIT_TAG main
+)
+
+# Disable Raylib examples to keep Visual Studio Startup Items list clean
+set(BUILD_EXAMPLES OFF CACHE BOOL "Build raylib examples" FORCE)
+
+# Disable audio module
+set(SUPPORT_MODULE_RAUDIO OFF CACHE BOOL "Disable raylib audio module" FORCE)
+
+FetchContent_MakeAvailable(raylib imgui rlImGui)
+
+# Applications
+add_subdirectory(app/common)
+add_subdirectory(app/s2edit)
+add_subdirectory(app/s2demo)
+add_subdirectory(app/s2hare)
 
 # Package Export Configuration
 set(S2LIKELIB_INSTALL_CMAKEDIR ${CMAKE_INSTALL_LIBDIR}/cmake/S2LikeLib)

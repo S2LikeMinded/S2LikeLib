@@ -50,24 +50,24 @@ namespace S2LL
 		/// Converts spherical coordinates (polar angle p, azimuth a) into 3D Cartesian space
 		inline E3 to_E3(const S2& s2) const noexcept
 		{
-			auto [sin_p, cos_p] = sin_and_cos(s2.p);
-			auto [sin_a, cos_a] = sin_and_cos(s2.a);
+			auto [sin_p, cos_p] = SinCos(s2.p);
+			auto [sin_a, cos_a] = SinCos(s2.a);
 			return E3{
-				static_cast<double>(mul(mul(a, sin_p), cos_a)),
-				static_cast<double>(mul(mul(b, sin_p), sin_a)),
-				static_cast<double>(mul(c, cos_p))
+				static_cast<double>(Mul(Mul(a, sin_p), cos_a)),
+				static_cast<double>(Mul(Mul(b, sin_p), sin_a)),
+				static_cast<double>(Mul(c, cos_p))
 			};
 		}
 
 		/// Converts latitude-longitude coordinates (lat, lon) into 3D Cartesian space
 		inline E3 to_E3(const LL& ll) const noexcept
 		{
-			auto [sin_lat, cos_lat] = sin_and_cos(ll.lat);
-			auto [sin_lon, cos_lon] = sin_and_cos(ll.lon);
+			auto [sin_lat, cos_lat] = SinCos(ll.lat);
+			auto [sin_lon, cos_lon] = SinCos(ll.lon);
 			return E3{
-				static_cast<double>(mul(mul(a, cos_lat), cos_lon)),
-				static_cast<double>(mul(mul(b, cos_lat), sin_lon)),
-				static_cast<double>(mul(c, sin_lat))
+				static_cast<double>(Mul(Mul(a, cos_lat), cos_lon)),
+				static_cast<double>(Mul(Mul(b, cos_lat), sin_lon)),
+				static_cast<double>(Mul(c, sin_lat))
 			};
 		}
 	};
@@ -116,9 +116,9 @@ namespace S2LL
 			{
 				return std::nullopt;
 			}
-			const double sq = std::sqrt(disc);
-			const double t0 = (-b - sq) / (2.0 * a);
-			const double t1 = (-b + sq) / (2.0 * a);
+			const double disc_root = std::sqrt(disc);
+			const double t0 = (-b - disc_root) / (2.0 * a);
+			const double t1 = (-b + disc_root) / (2.0 * a);
 			return std::make_pair(t0, t1);
 		}
 
@@ -178,9 +178,9 @@ namespace S2LL
 		inline E3 operator()(const E3& p) const noexcept
 		{
 			return E3{
-				static_cast<double>(add(p.x, mul(m[0][1], p.y))),
+				static_cast<double>(Add(p.x, Mul(m[0][1], p.y))),
 				p.y,
-				static_cast<double>(add(p.z, mul(m[2][1], p.y)))
+				static_cast<double>(Add(p.z, Mul(m[2][1], p.y)))
 			};
 		}
 
@@ -188,9 +188,9 @@ namespace S2LL
 		inline E3 inverse(const E3& p) const noexcept
 		{
 			return E3{
-				static_cast<double>(add(p.x, mul(kx, p.y))),
+				static_cast<double>(Add(p.x, Mul(kx, p.y))),
 				p.y,
-				static_cast<double>(add(p.z, mul(kz, p.y)))
+				static_cast<double>(Add(p.z, Mul(kz, p.y)))
 			};
 		}
 

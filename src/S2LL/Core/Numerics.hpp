@@ -35,6 +35,21 @@ namespace S2LL
 			return hi + lo;
 		}
 
+		/// Conversion operator to float
+		explicit constexpr operator float() const noexcept
+		{
+			return static_cast<float>(hi + lo);
+		}
+
+		/// Assigns a plain double; the low (error) component is cleared,
+		/// matching Lift's interpretation of a bare double as exact
+		constexpr Double& operator=(double x) noexcept
+		{
+			hi = x;
+			lo = 0.0;
+			return *this;
+		}
+
 		/// Double-double equality if and only if both components are equal
 		friend constexpr bool operator==(const Double& a, const Double& b) noexcept
 		{
@@ -101,6 +116,12 @@ namespace S2LL
 			return hi == 0.0 && lo == 0.0;
 		}
 
+		/// Absolute value: the magnitude of the extended-precision value
+		constexpr Double abs() const noexcept
+		{
+			return isneg() ? -(*this) : *this;
+		}
+
 		/// \brief Quick-Two-Sum algorithm (Shewchuk 1997 / Thall 2006)
 		/// \details Prerequisite: \f$|a| \ge |b|\f$
 		static constexpr Double quickTwoSum(double a, double b) noexcept
@@ -135,14 +156,17 @@ namespace S2LL
 		/// Pi representation
 		static const Double Pi;
 
+		/// 1 radian, expressed in degrees
+		static const Double Radians;
+
 		/// 1 degree, expressed in radians
-		static const Double Degree;
+		static const Double Degrees;
 
 		/// 1 minute, expressed in radians
-		static const Double Minute;
+		static const Double Minutes;
 
 		/// 1 second, expressed in radians
-		static const Double Second;
+		static const Double Seconds;
 	};
 
 	inline const Double Double::NaN{
@@ -179,14 +203,14 @@ namespace S2LL
 	}
 
 	/// Double-double addition
-	inline Double add(const Double& a, const Double& b)
+	inline Double Add(const Double& a, const Double& b)
 	{
 		Double s = Double::twoSum(a.hi, b.hi);
 		return Double::make(s.hi, s.lo + a.lo + b.lo);
 	}
 
 	/// Double-double subtraction
-	inline Double sub(const Double& a, const Double& b)
+	inline Double Sub(const Double& a, const Double& b)
 	{
 		double d = a.hi - b.hi;
 		double q_virt = a.hi - d;
@@ -195,7 +219,7 @@ namespace S2LL
 	}
 
 	/// Double-double multiplication
-	inline Double mul(const Double& a, const Double& b)
+	inline Double Mul(const Double& a, const Double& b)
 	{
 		double p_hi = a.hi * b.hi;
 		double p_lo = std::fma(a.hi, b.hi, -p_hi);
@@ -204,7 +228,7 @@ namespace S2LL
 	}
 
 	/// Double-double division
-	inline Double div(const Double& a, const Double& b)
+	inline Double Div(const Double& a, const Double& b)
 	{
 		double q_hi = a.hi / b.hi;
 		double p_hi = q_hi * b.hi;
@@ -213,8 +237,8 @@ namespace S2LL
 		return Double::quickTwoSum(q_hi, q_lo);
 	}
 
-	/// Double-double two-argument arctangent (atan2)
-	inline Double atan2(const Double& y, const Double& x)
+	/// Double-double two-argument arctangent (Atan2)
+	inline Double Atan2(const Double& y, const Double& x)
 	{
 		if (y.isnan() || x.isnan())
 		{
@@ -233,61 +257,90 @@ namespace S2LL
 		}
 
 		double dy = (x.hi * y.lo - y.hi * x.lo) / r2;
-		return add(Double::make(y0), Double::make(dy));
+		return Add(Double::make(y0), Double::make(dy));
 	}
 
-	/// Generic function overloads lifting double parameters to Double
-#define S2LL_LIFT_BINOP(op) \
-	template <typename A, typename B, \
-		typename = std::enable_if_t<std::is_same_v<std::decay_t<A>, double> || std::is_same_v<std::decay_t<B>, double>>> \
-	inline Double op(const A& a, const B& b) \
-	{ \
-		return ::S2LL::op(static_cast<Double>(Lift(a)), static_cast<Double>(Lift(b))); \
-	}
+	/// Function overloads lifting scalar operands to Double. At least one
+	/// operand must be arithmetic (the other may be Double); Lift performs
+	/// the conversion so the computation stays in extended precision.
+	template <typename A, typename B,
+		typename = std::enable_if_t<std::is_arithmetic_v<A> || std::is_arithmetic_v<B>>>
+	inline Double Add(const A& a, const B& b) { return Add(Lift(a), Lift(b)); }
 
-	S2LL_LIFT_BINOP(add)
-	S2LL_LIFT_BINOP(sub)
-	S2LL_LIFT_BINOP(mul)
-	S2LL_LIFT_BINOP(div)
-	S2LL_LIFT_BINOP(atan2)
-#undef S2LL_LIFT_BINOP
+	template <typename A, typename B,
+		typename = std::enable_if_t<std::is_arithmetic_v<A> || std::is_arithmetic_v<B>>>
+	inline Double Sub(const A& a, const B& b) { return Sub(Lift(a), Lift(b)); }
+
+	template <typename A, typename B,
+		typename = std::enable_if_t<std::is_arithmetic_v<A> || std::is_arithmetic_v<B>>>
+	inline Double Mul(const A& a, const B& b) { return Mul(Lift(a), Lift(b)); }
+
+	template <typename A, typename B,
+		typename = std::enable_if_t<std::is_arithmetic_v<A> || std::is_arithmetic_v<B>>>
+	inline Double Div(const A& a, const B& b) { return Div(Lift(a), Lift(b)); }
+
+	template <typename A, typename B,
+		typename = std::enable_if_t<std::is_arithmetic_v<A> || std::is_arithmetic_v<B>>>
+	inline Double Atan2(const A& y, const B& x) { return Atan2(Lift(y), Lift(x)); }
 
 	/// Binary arithmetic operators (+, -, *, /) for S2LL::Double and scalars
-	inline Double operator+(const Double& a, const Double& b) { return add(a, b); }
-	inline Double operator-(const Double& a, const Double& b) { return sub(a, b); }
-	inline Double operator*(const Double& a, const Double& b) { return mul(a, b); }
-	inline Double operator/(const Double& a, const Double& b) { return div(a, b); }
+	inline Double operator+(const Double& a, const Double& b) { return Add(a, b); }
+	inline Double operator-(const Double& a, const Double& b) { return Sub(a, b); }
+	inline Double operator*(const Double& a, const Double& b) { return Mul(a, b); }
+	inline Double operator/(const Double& a, const Double& b) { return Div(a, b); }
 
-#define S2LL_LIFT_BINOP_OPERATOR(op_symbol, func_name) \
-	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>> \
-	inline Double operator op_symbol(const Double& a, const T& b) { return func_name(a, Lift(b)); } \
-	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>> \
-	inline Double operator op_symbol(const T& a, const Double& b) { return func_name(Lift(a), b); }
+	/// Operators for S2LL::Double and scalar operands; the scalar is lifted
+	/// to Double so the operation completes in extended precision.
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+	inline Double operator+(const Double& a, const T& b) { return Add(a, Lift(b)); }
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+	inline Double operator-(const Double& a, const T& b) { return Sub(a, Lift(b)); }
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+	inline Double operator*(const Double& a, const T& b) { return Mul(a, Lift(b)); }
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+	inline Double operator/(const Double& a, const T& b) { return Div(a, Lift(b)); }
 
-	S2LL_LIFT_BINOP_OPERATOR(+, add)
-	S2LL_LIFT_BINOP_OPERATOR(-, sub)
-	S2LL_LIFT_BINOP_OPERATOR(*, mul)
-	S2LL_LIFT_BINOP_OPERATOR(/, div)
-#undef S2LL_LIFT_BINOP_OPERATOR
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+	inline Double operator+(const T& a, const Double& b) { return Add(Lift(a), b); }
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+	inline Double operator-(const T& a, const Double& b) { return Sub(Lift(a), b); }
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+	inline Double operator*(const T& a, const Double& b) { return Mul(Lift(a), b); }
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+	inline Double operator/(const T& a, const Double& b) { return Div(Lift(a), b); }
 
-	inline const Double Double::Degree = div(Double::Pi, 180.0);
-	inline const Double Double::Minute = div(Double::Pi, 10800.0);
-	inline const Double Double::Second = div(Double::Pi, 648000.0);
+	inline const Double Double::Degrees = Div(Double::Pi, 180.0);
+	inline const Double Double::Radians = Div(180.0, Double::Pi);
+	inline const Double Double::Minutes = Div(Double::Pi, 10800.0);
+	inline const Double Double::Seconds = Div(Double::Pi, 648000.0);
+
+	/// Converts degrees to radians in extended precision.
+	inline Double FromDeg(const Double& deg) { return Mul(deg, Double::Degrees); }
+
+	/// Converts radians to degrees in extended precision.
+	inline Double ToDeg(const Double& rad) { return Mul(rad, Double::Radians); }
+
+	/// Scalar-lifting overloads, mirroring Lift.
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+	inline Double FromDeg(const T& deg) { return FromDeg(Lift(deg)); }
+
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+	inline Double ToDeg(const T& rad) { return ToDeg(Lift(rad)); }
 
 	/// Quadrant snapping for Double
-	inline Double snap_quadrant(double x) noexcept
+	inline Double SnapQuadrant(double x) noexcept
 	{
 		double hp = 0.5 * std::numbers::pi;
 		int64_t k = static_cast<int64_t>(std::round(x / hp));
 		if (x == static_cast<double>(k) * hp)
 		{
-			return mul(0.5 * k, Double::Pi);
+			return Mul(0.5 * k, Double::Pi);
 		}
 		return Double::make(x, 0.0);
 	}
 
 	/// Double-double square (not square root!)
-	inline Double sq(const Double& a)
+	inline Double Sq(const Double& a)
 	{
 		double p_hi = a.hi * a.hi;
 		double p_lo = std::fma(a.hi, a.hi, -p_hi);
@@ -296,7 +349,7 @@ namespace S2LL
 	}
 
 	/// Double-double square root
-	inline Double sqrt(const Double& a)
+	inline Double Sqrt(const Double& a)
 	{
 		if (a.isnan())
 		{
@@ -314,14 +367,14 @@ namespace S2LL
 
 		double xn = 1.0 / std::sqrt(a.hi);
 		double yn = a.hi * xn;
-		Double ynsq = sq(Double::make(yn));
-		double d = sub(a, ynsq).hi;
-		Double p = mul(0.5 * xn, d);
-		return add(Double::make(yn), p);
+		Double ynsq = Sq(Double::make(yn));
+		double d = Sub(a, ynsq).hi;
+		Double p = Mul(0.5 * xn, d);
+		return Add(Double::make(yn), p);
 	}
 
 	/// High-precision simultaneous double-double sine and cosine
-	inline std::pair<Double, Double> sin_and_cos(const Double& a)
+	inline std::pair<Double, Double> SinCos(const Double& a)
 	{
 		if (a.isnan())
 		{
@@ -332,14 +385,14 @@ namespace S2LL
 		double c = std::cos(a.hi);
 
 		// First-order Taylor series correction using a.lo
-		Double sin_a = add(Double::make(s), mul(a.lo, c));
-		Double cos_a = sub(Double::make(c), mul(a.lo, s));
+		Double sin_a = Add(Double::make(s), Mul(a.lo, c));
+		Double cos_a = Sub(Double::make(c), Mul(a.lo, s));
 
 		return std::make_pair(sin_a, cos_a);
 	}
 
-	/// Double-double inverse cosine (acos)
-	inline Double acos(const Double& a)
+	/// Double-double inverse cosine (Acos)
+	inline Double Acos(const Double& a)
 	{
 		if (a.isnan())
 		{
@@ -359,40 +412,68 @@ namespace S2LL
 		}
 
 		double dy = -a.lo / std::sqrt(s);
-		return add(Double::make(y0), Double::make(dy));
+		return Add(Double::make(y0), Double::make(dy));
 	}
 
-#define S2LL_LIFT_UNOP(op) \
-	template <typename T, typename = std::enable_if_t<std::is_same_v<std::decay_t<T>, double>>> \
-	inline Double op(const T& x) \
-	{ \
-		return ::S2LL::op(static_cast<Double>(Lift(x))); \
-	}
-
-	S2LL_LIFT_UNOP(sq)
-	S2LL_LIFT_UNOP(sqrt)
-	S2LL_LIFT_UNOP(acos)
-#undef S2LL_LIFT_UNOP
-
-	inline std::pair<Double, Double> sin_and_cos(double x)
+	/// Ceiling: the smallest integer-valued Double not less than a.
+	inline Double Ceil(const Double& a)
 	{
-		return sin_and_cos(snap_quadrant(x));
+		double c = std::ceil(a.hi);
+		Double r = Sub(a, Double::make(c));
+		if (r > Double::Zero)
+		{
+			return Add(Double::make(c), Double::One);
+		}
+		return Double::make(c);
+	}
+
+	/// Floor: the greatest integer-valued Double not greater than a.
+	inline Double Floor(const Double& a)
+	{
+		double c = std::floor(a.hi);
+		Double r = Sub(a, Double::make(c));
+		if (r < Double::Zero)
+		{
+			return Sub(Double::make(c), Double::One);
+		}
+		return Double::make(c);
+	}
+
+	/// Unary function overloads lifting scalar parameters to Double.
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+	inline Double Sq(const T& x) { return Sq(Lift(x)); }
+
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+	inline Double Sqrt(const T& x) { return Sqrt(Lift(x)); }
+
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+	inline Double Acos(const T& x) { return Acos(Lift(x)); }
+
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+	inline Double Ceil(const T& x) { return Ceil(Lift(x)); }
+
+	template <typename T, typename = std::enable_if_t<std::is_arithmetic_v<T>>>
+	inline Double Floor(const T& x) { return Floor(Lift(x)); }
+
+	inline std::pair<Double, Double> SinCos(double x)
+	{
+		return SinCos(SnapQuadrant(x));
 	}
 
 	namespace Literals
 	{
 		/// S2LL::Double extended-precision literals
-		inline Double operator""_Pi(long double p) { return mul(static_cast<double>(p), Double::Pi); }
-		inline Double operator""_Pi(unsigned long long p) { return mul(static_cast<double>(p), Double::Pi); }
+		inline Double operator""_Pi(long double p) { return Mul(static_cast<double>(p), Double::Pi); }
+		inline Double operator""_Pi(unsigned long long p) { return Mul(static_cast<double>(p), Double::Pi); }
 
-		inline Double operator""_Deg(long double d) { return mul(static_cast<double>(d), Double::Degree); }
-		inline Double operator""_Deg(unsigned long long d) { return mul(static_cast<double>(d), Double::Degree); }
+		inline Double operator""_Deg(long double d) { return Mul(static_cast<double>(d), Double::Degrees); }
+		inline Double operator""_Deg(unsigned long long d) { return Mul(static_cast<double>(d), Double::Degrees); }
 
-		inline Double operator""_Min(long double m) { return mul(static_cast<double>(m), Double::Minute); }
-		inline Double operator""_Min(unsigned long long m) { return mul(static_cast<double>(m), Double::Minute); }
+		inline Double operator""_Min(long double m) { return Mul(static_cast<double>(m), Double::Minutes); }
+		inline Double operator""_Min(unsigned long long m) { return Mul(static_cast<double>(m), Double::Minutes); }
 
-		inline Double operator""_Sec(long double s) { return mul(static_cast<double>(s), Double::Second); }
-		inline Double operator""_Sec(unsigned long long s) { return mul(static_cast<double>(s), Double::Second); }
+		inline Double operator""_Sec(long double s) { return Mul(static_cast<double>(s), Double::Seconds); }
+		inline Double operator""_Sec(unsigned long long s) { return Mul(static_cast<double>(s), Double::Seconds); }
 
 		/// Built-in double literals
 		inline double operator""_pi(long double p) { return static_cast<double>(p) * std::numbers::pi; }
@@ -406,5 +487,31 @@ namespace S2LL
 
 		inline double operator""_sec(long double s) { return static_cast<double>(s) * (std::numbers::pi / 648000.0); }
 		inline double operator""_sec(unsigned long long s) { return static_cast<double>(s) * (std::numbers::pi / 648000.0); }
+	}
+
+	/// Import symbols related to extended-precision computation.
+	namespace Numerics
+	{
+		using ::S2LL::Double;
+		using ::S2LL::Lift;
+		using ::S2LL::Add;
+		using ::S2LL::Sub;
+		using ::S2LL::Mul;
+		using ::S2LL::Div;
+		using ::S2LL::FromDeg;
+		using ::S2LL::ToDeg;
+		using ::S2LL::Atan2;
+		using ::S2LL::Sq;
+		using ::S2LL::Sqrt;
+		using ::S2LL::SinCos;
+		using ::S2LL::Acos;
+		using ::S2LL::Ceil;
+		using ::S2LL::Floor;
+		using ::S2LL::SnapQuadrant;
+		using ::S2LL::operator+;
+		using ::S2LL::operator-;
+		using ::S2LL::operator*;
+		using ::S2LL::operator/;
+		using namespace ::S2LL::Literals;
 	}
 }

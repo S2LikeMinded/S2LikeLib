@@ -67,7 +67,36 @@ An interactive tool to demonstrate the results of some peer-reviewed articles.
 
 ## S²Edit
 
-An interactive CLI tool for inspecting, processing, and editing ellipsoidal and spherical geographic regions.
+An interactive CLI tool for inspecting, processing, and editing ellipsoidal
+and spherical geographic regions.
+
+## S²Hare
+
+![The S²Hare app depicting an equilaterial right triangle](doc/img/S2Hare.jpg)
+
+An interactive toy for running Logo-style turtles on a sphere: a hare (or a
+tortoise, switchable in the settings) crawls along great circles, leaving a
+trail behind it. Write a program using `fd` / `bk` / `rt` / `lt` / `pu` /
+`pd` / `home` / `cs` / `repeat`, run presets, and drag to orbit the sphere.
+
+S²Hare is not the first ~~turtle~~ creature on the sphere, but it sure is fun to implement
+as an experimental app and a demonstration for the greater library.
+Related efforts or prior work, as a non-exhaustive list:
+
+- Abelson, H., & DiSessa, A. (1986).
+  [*Turtle geometry: The computer as a medium for exploring mathematics.*](https://search.worldcat.org/title/6914987)
+  MIT Press.
+- Redick, M. B. (2012).
+  *Math on a Sphere: Implementing a Programming Language for Learners*
+  (Master's thesis, University of Colorado at Boulder).
+- Swart, D. (2009, July).
+  [Using Turtles and Skeletons to Display the Viewable Sphere.](https://archive.bridgesmathart.org/2009/bridges2009-39.pdf)
+  In *Proceedings of Bridges 2009: Mathematics, Music, Art, Architecture, Culture* (pp. 39-46).
+- GéoTortue – Nouvelle Génération.
+  [Website](http://geotortue.free.fr)
+
+S²Hare follows most traditions, but with differences that reflect this project's
+goals: its computational foundations in `S2LL::Numerics` and non-browser nativeness.
 
 # Dependencies
 

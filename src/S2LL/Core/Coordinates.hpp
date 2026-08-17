@@ -49,23 +49,23 @@ namespace S2LL
 			return std::isnan(x) || std::isnan(y) || std::isnan(z);
 		}
 
-		// Calculates vector magnitude using extended-precision S2LL::Double
+		// Calculates vector magnitude using extended precision
 		inline Double Mag() const
 		{
-			Double sqsum = sq(x) + sq(y) + sq(z);
-			return sqrt(sqsum);
+			Double sqsum = Sq(x) + Sq(y) + Sq(z);
+			return Sqrt(sqsum);
 		}
 
-		/// Calculates vector magnitude using extended-precision S2LL::Double
+		/// Calculates vector magnitude using extended precision
 		inline double mag() const
 		{
 			return static_cast<double>(Mag());
 		}
 
-		// Normalizes this 3D vector in-place using extended-precision S2LL::Double
+		// Normalizes this 3D vector in-place using extended precision
 		inline E3& normalize()
 		{
-			Double sqsum = sq(x) + sq(y) + sq(z);
+			Double sqsum = Sq(x) + Sq(y) + Sq(z);
 			if (sqsum.iszero())
 			{
 				std::feraiseexcept(FE_DIVBYZERO);
@@ -74,14 +74,14 @@ namespace S2LL
 				z = std::numeric_limits<double>::quiet_NaN();
 				return *this;
 			}
-			Double d_m = sqrt(sqsum);
-			x = static_cast<double>(div(Lift(x), d_m));
-			y = static_cast<double>(div(Lift(y), d_m));
-			z = static_cast<double>(div(Lift(z), d_m));
+			Double d_m = Sqrt(sqsum);
+			x = static_cast<double>(Div(Lift(x), d_m));
+			y = static_cast<double>(Div(Lift(y), d_m));
+			z = static_cast<double>(Div(Lift(z), d_m));
 			return *this;
 		}
 
-		// Returns a normalized copy of this vector using extended-precision S2LL::Double
+		// Returns a normalized copy of this vector using extended precision
 		inline E3 normalized() const
 		{
 			E3 temp = *this;
@@ -89,19 +89,19 @@ namespace S2LL
 			return temp;
 		}
 
-		// Calculates dot product using extended-precision S2LL::Double
+		// Calculates dot product using extended precision
 		inline double dot(const E3& other) const noexcept
 		{
-			Double d = mul(x, other.x) + mul(y, other.y) + mul(z, other.z);
+			Double d = Mul(x, other.x) + Mul(y, other.y) + Mul(z, other.z);
 			return static_cast<double>(d);
 		}
 
-		// Calculates cross product using extended-precision S2LL::Double
+		// Calculates cross product (*this x other) using extended precision
 		inline E3 cross(const E3& other) const noexcept
 		{
-			Double cx = mul(y, other.z) - mul(z, other.y);
-			Double cy = mul(z, other.x) - mul(x, other.z);
-			Double cz = mul(x, other.y) - mul(y, other.x);
+			Double cx = Mul(y, other.z) - Mul(z, other.y);
+			Double cy = Mul(z, other.x) - Mul(x, other.z);
+			Double cz = Mul(x, other.y) - Mul(y, other.x);
 			return E3{
 				static_cast<double>(cx),
 				static_cast<double>(cy),
@@ -122,49 +122,49 @@ namespace S2LL
 		}
 	};
 
-	// Adds two 3D vectors using extended-precision S2LL::Double
+	// Adds two 3D vectors using  extended precision
 	inline E3 operator+(const E3& a, const E3& b) noexcept
 	{
 		return E3{
-			static_cast<double>(add(a.x, b.x)),
-			static_cast<double>(add(a.y, b.y)),
-			static_cast<double>(add(a.z, b.z))
+			static_cast<double>(Add(a.x, b.x)),
+			static_cast<double>(Add(a.y, b.y)),
+			static_cast<double>(Add(a.z, b.z))
 		};
 	}
 
-	// Subtracts two 3D vectors using extended-precision S2LL::Double
+	// Subtracts two 3D vectors using extended precision
 	inline E3 operator-(const E3& a, const E3& b) noexcept
 	{
 		return E3{
-			static_cast<double>(sub(a.x, b.x)),
-			static_cast<double>(sub(a.y, b.y)),
-			static_cast<double>(sub(a.z, b.z))
+			static_cast<double>(Sub(a.x, b.x)),
+			static_cast<double>(Sub(a.y, b.y)),
+			static_cast<double>(Sub(a.z, b.z))
 		};
 	}
 
-	// Multiplies a 3D vector by a scalar using extended-precision S2LL::Double
+	// Multiplies a 3D vector by a scalar using extended precision
 	inline E3 operator*(const E3& v, double scalar)
 	{
 		return E3{
-			static_cast<double>(mul(v.x, scalar)),
-			static_cast<double>(mul(v.y, scalar)),
-			static_cast<double>(mul(v.z, scalar))
+			static_cast<double>(Mul(v.x, scalar)),
+			static_cast<double>(Mul(v.y, scalar)),
+			static_cast<double>(Mul(v.z, scalar))
 		};
 	}
 
-	// Multiplies a scalar by a 3D vector using extended-precision S2LL::Double
+	// Multiplies a scalar by a 3D vector using extended precision
 	inline E3 operator*(double scalar, const E3& v)
 	{
 		return v * scalar;
 	}
 
-	// Calculates dot product of two 3D vectors using extended-precision S2LL::Double
+	// Calculates dot product of two 3D vectors using extended precision
 	inline double dot(const E3& a, const E3& b) noexcept
 	{
 		return a.dot(b);
 	}
 
-	// Calculates cross product of two 3D vectors using extended-precision S2LL::Double
+	// Calculates cross product of two 3D vectors using extended precision
 	inline E3 cross(const E3& a, const E3& b) noexcept
 	{
 		return a.cross(b);
@@ -221,8 +221,8 @@ namespace S2LL
 
 	inline S2 E3::s2() const noexcept
 	{
-		Double p = acos(div(Lift(z), Mag()));
-		Double a = atan2(Lift(y), Lift(x));
+		Double p = Acos(Div(Lift(z), Mag()));
+		Double a = Atan2(Lift(y), Lift(x));
 		return S2 {
 			static_cast<double>(p),
 			static_cast<double>(a)
@@ -246,11 +246,11 @@ namespace S2LL
 
 	inline E3 LL::e3() const noexcept
 	{
-		auto [sin_lat, cos_lat] = sin_and_cos(lat);
-		auto [sin_lon, cos_lon] = sin_and_cos(lon);
+		auto [sin_lat, cos_lat] = SinCos(lat);
+		auto [sin_lon, cos_lon] = SinCos(lon);
 		return E3{
-			static_cast<double>(mul(cos_lat, cos_lon)),
-			static_cast<double>(mul(cos_lat, sin_lon)),
+			static_cast<double>(Mul(cos_lat, cos_lon)),
+			static_cast<double>(Mul(cos_lat, sin_lon)),
 			static_cast<double>(sin_lat)
 		};
 	}

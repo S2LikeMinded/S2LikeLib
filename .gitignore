@@ -41,6 +41,9 @@ lib/
 *.out
 *.app
 
+# Log files
+*.log
+
 # Visual Studio Solution Settings folder
 .vs/
 
